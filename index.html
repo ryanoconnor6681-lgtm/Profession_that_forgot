@@ -1,0 +1,2372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Profession That Forgot Its Worth — On $150,000</title>
+  <meta name="description" content="An interactive look at what happened to architecture as a profession — and why a 20-year licensed architect earns less than a third-year software engineer.">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;0,9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #e9e0c8;
+      --bg-raised: #f0e8d3;
+      --bg-sunken: #ddd2b4;
+      --bg-dark: #26201a;
+      --text: #2b2521;
+      --text-muted: #6b5d4c;
+      --text-faint: #a09380;
+      --line: #cbbe9c;
+      --line-faint: #d8cda9;
+      --accent: #a16207;
+      --accent-strong: #854d0e;
+      --gain: #556b2f;
+      --loss: #8a3412;
+      --arch: #8a3412;
+      --law: #6b5d4c;
+      --med: #556b2f;
+      --soft: #a16207;
+    }
+    html, body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+    .serif { font-family: 'Fraunces', Georgia, serif; font-optical-sizing: auto; }
+    .serif-display { font-variation-settings: "opsz" 144; }
+    .serif-text { font-variation-settings: "opsz" 24; letter-spacing: 0.005em; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+    .bg-cream { background-color: var(--bg); }
+    .bg-cream-raised { background-color: var(--bg-raised); }
+    .bg-cream-sunken { background-color: var(--bg-sunken); }
+    .bg-dark { background-color: var(--bg-dark); }
+    .text-main { color: var(--text); }
+    .text-muted { color: var(--text-muted); }
+    .text-faint { color: var(--text-faint); }
+    .text-accent { color: var(--accent); }
+    .text-gain { color: var(--gain); }
+    .text-loss { color: var(--loss); }
+    .border-line { border-color: var(--line); }
+    .border-line-faint { border-color: var(--line-faint); }
+    .accent-bg { background-color: var(--accent); }
+    input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
+    input[type=range]::-webkit-slider-runnable-track { height: 2px; background: var(--text-muted); border-radius: 2px; }
+    input[type=range]::-moz-range-track { height: 2px; background: var(--text-muted); border-radius: 2px; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; height: 18px; width: 18px; border-radius: 50%; background: var(--text); margin-top: -8px; border: 2px solid var(--bg); box-shadow: 0 0 0 1px var(--text); }
+    input[type=range]::-moz-range-thumb { height: 18px; width: 18px; border-radius: 50%; background: var(--text); border: 2px solid var(--bg); box-shadow: 0 0 0 1px var(--text); }
+    .fade-in { animation: fadeIn 0.4s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .draw-in { stroke-dasharray: 2000; stroke-dashoffset: 2000; animation: drawIn 1.6s ease-out forwards; }
+    @keyframes drawIn { to { stroke-dashoffset: 0; } }
+  </style>
+</head>
+<body class="bg-cream text-main antialiased">
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo, useRef, useEffect } = React;
+
+    // ============================================================
+    // DATA — anchored in BLS May 2024, AIA Compensation 2025-26,
+    // NCARB 2024-2025, Levels.fyi 2025, NALP 2025
+    // ============================================================
+
+    // The architect anchor — 20-yr licensed architect, AIA Senior Architect band
+    const ARCH_ANCHOR = 150_000;
+
+    // Median wages (BLS OEWS May 2024, base salary)
+    const ARCH_MEDIAN = 96_690;     // Architects (excl. landscape/naval)
+    const LAW_MEDIAN = 151_160;     // Lawyers
+    const MED_MEDIAN = 239_200;     // Physicians and surgeons (BLS top-codes; actual higher)
+    const SOFT_MEDIAN = 133_080;    // Software developers
+
+    // Senior / 20-year band (AIA Comp Survey + NALP + AAMC + Levels.fyi base)
+    const ARCH_SENIOR = 150_000;    // AIA Senior Architect, ~12-20 yr, US median band
+    const LAW_SENIOR = 365_000;     // BigLaw senior associate / non-equity partner
+    const MED_SENIOR = 350_000;     // Mid-career attending physician, family medicine ~$240K, surgical specialties higher
+    const SOFT_SENIOR_BASE = 191_000; // Levels.fyi median SWE total comp
+    const SOFT_SENIOR_TC = 312_000;   // Levels.fyi Senior median TC
+
+    // Legal history
+    const HISTORY = [
+      { year: 1857, label: 'AIA founded',            note: '13 architects in NYC create the institute.' },
+      { year: 1865, label: 'The 5% precedent',       note: 'Richard Morris Hunt sues a client for nonpayment of his fee. He wins. The 5%-of-construction-cost standard is born.' },
+      { year: 1908, label: 'Mandatory fee schedule', note: 'AIA publishes minimum fees. Undercutting becomes an ethics violation. You can lose your license.' },
+      { year: 1972, label: 'The consent decree',     note: 'Civil Action 992-72. DOJ ends the fee schedule under the Sherman Antitrust Act. AIA settles, prohibits itself from suggesting fees.', pivot: true },
+      { year: 1979, label: 'Mardirosian v. AIA',     note: 'Aram Mardirosian sues after being expelled for "stealing" a project. He wins. The Code of Ethics begins to crack.' },
+      { year: 1980, label: 'Code of Ethics withdrawn', note: 'AIA pulls its entire Architectural Code of Ethics rather than face further antitrust exposure.' },
+      { year: 1990, label: 'The second decree',      note: 'Halloween 1990. Civil Action 90-1567. AIA enjoined from any direct or indirect restraint on architect pricing — applies to ALL architects, not just members.', pivot: true }
+    ];
+
+    // Path to license — NCARB 2024-2025 data
+    const PIPELINE = [
+      { stage: 'Architecture school',       years: 5.5,  label: '5–7 yr B.Arch or 4-yr pre-prof + M.Arch', pay: 0 },
+      { stage: 'AXP (formerly IDP)',         years: 4.9,  label: '3,740 hours under licensed supervision', pay: 58_000 },
+      { stage: 'ARE (6 divisions)',          years: 2.5,  label: '$1,260 in exam fees, often overlapping AXP', pay: 65_000 }
+    ];
+
+    // Comparison: time to senior-equivalent
+    const PATHS = [
+      { profession: 'Architect',         color: 'var(--arch)', schoolYears: 5.5, postSchool: 7.8, totalToSenior: 18, license: 13.3, postLicensePay: 96_690, seniorPay: 150_000 },
+      { profession: 'Lawyer',            color: 'var(--law)',  schoolYears: 7,   postSchool: 8,   totalToSenior: 15, license: 7,    postLicensePay: 200_000, seniorPay: 365_000 },
+      { profession: 'Physician',         color: 'var(--med)',  schoolYears: 8,   postSchool: 5,   totalToSenior: 13, license: 11,   postLicensePay: 75_000,  seniorPay: 350_000 },
+      { profession: 'Software engineer', color: 'var(--soft)', schoolYears: 4,   postSchool: 4,   totalToSenior: 8,  license: 0,    postLicensePay: 95_000,  seniorPay: 312_000 }
+    ];
+
+    // Where the $100M building's money goes (industry rule-of-thumb percentages)
+    const BUILDING_PIE = [
+      { who: 'General contractor',  pct: 75,  detail: 'Construction labor, materials, sub-trades' },
+      { who: 'Developer / owner',   pct: 12,  detail: 'Captures the appreciation. Owns the asset.' },
+      { who: 'Engineering (MEP+S)', pct: 4,   detail: 'Structural, mechanical, electrical, plumbing' },
+      { who: 'CM / project mgmt',   pct: 3,   detail: 'Construction management fees' },
+      { who: 'Architect',           pct: 6,   detail: '5–8% of construction cost. Capped. No upside.', highlight: true }
+    ];
+
+    // Software product comp (illustrative, $100M revenue product, founding/early team)
+    const SOFTWARE_PIE = [
+      { who: 'Investors / equity',  pct: 60,  detail: 'VC, founders\' shares, post-exit' },
+      { who: 'Engineering team',    pct: 25,  detail: 'Equity + base + bonus. Captures product upside.', highlight: true },
+      { who: 'GTM / sales',         pct: 10,  detail: 'Commissions, recurring revenue share' },
+      { who: 'Operations',          pct: 5,   detail: 'Hosting, support, admin' }
+    ];
+
+    // ============================================================
+    // FORMATTERS
+    // ============================================================
+    function formatMoney(n) {
+      const sign = n < 0 ? '-' : '';
+      const a = Math.abs(n);
+      if (a >= 1e9)  return `${sign}$${(a/1e9).toFixed(a >= 1e10 ? 0 : 1)}B`;
+      if (a >= 1e6)  return `${sign}$${(a/1e6).toFixed(a >= 1e7 ? 0 : 1)}M`;
+      if (a >= 1e3)  return `${sign}$${(a/1e3).toFixed(0)}K`;
+      return `${sign}$${Math.round(a).toLocaleString()}`;
+    }
+    function formatFull(n) {
+      return `${n < 0 ? '-' : ''}$${Math.round(Math.abs(n)).toLocaleString()}`;
+    }
+
+    // ============================================================
+    // SHARED UI
+    // ============================================================
+
+    function Header({ activeTab, setActiveTab }) {
+      const tabs = [
+        { n: 1, label: "The Floor" },
+        { n: 2, label: "1972" },
+        { n: 3, label: "The Pipeline" },
+        { n: 4, label: "Roark Tax" },
+        { n: 5, label: "Value Leak" },
+        { n: 6, label: "What If" },
+        { n: 7, label: "Same Disease" },
+        { n: 8, label: "The Inheritance" }
+      ];
+      return (
+        <header className="border-b border-line sticky top-0 bg-cream/95 backdrop-blur z-50">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-4">
+            <div className="flex items-baseline gap-3 shrink-0">
+              <button onClick={() => setActiveTab(1)} className="serif text-lg md:text-xl font-semibold num">$150,000</button>
+              <span className="text-xs text-muted hidden xl:inline">The profession that forgot its worth</span>
+            </div>
+            <nav className="flex items-center gap-0.5 md:gap-1 text-xs overflow-x-auto">
+              {tabs.map(t => (
+                <button
+                  key={t.n}
+                  onClick={() => setActiveTab(t.n)}
+                  className={`px-2.5 md:px-3 py-1.5 rounded-full whitespace-nowrap transition ${
+                    t.n === activeTab ? 'bg-dark text-[var(--bg)]' : 'text-muted hover:text-main'
+                  }`}
+                >
+                  <span className="num mr-1.5 opacity-60">{String(t.n).padStart(2,'0')}</span>
+                  <span className="hidden md:inline">{t.label}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
+        </header>
+      );
+    }
+
+    function Footer() {
+      return (
+        <footer className="max-w-4xl mx-auto px-6 py-12 text-xs text-muted space-y-2 border-t border-line-faint mt-10">
+          <p>Sources: BLS Occupational Employment and Wage Statistics (May 2024); AIA Compensation &amp; Benefits Report 2025–26; NCARB by the Numbers 2024 &amp; 2025; Levels.fyi End of Year Pay Report 2025; NALP Associate Salary Survey 2025; Peggy Deamer, "The Sherman Antitrust Act and the Profession of Architecture" (Avery Review, 2015); United States v. AIA, Civil Actions 992-72 and 90-1567; Charles Nelson, "B04.01 AIA Consent Decree" (Design Node); New York Review of Architecture, "Antitrust and Architecture: Coordination not Domination."</p>
+          <p>Median figures are base salary unless otherwise noted. Total compensation at top tech companies includes equity and bonus. Profession comparisons use BLS OEWS for medians; senior-band figures from industry surveys cited above.</p>
+        </footer>
+      );
+    }
+
+    // ============================================================
+    // TAB 01 — THE FLOOR
+    // ============================================================
+
+    function Tab01_Hero() {
+      return (
+        <section className="max-w-4xl mx-auto px-6 pt-16 md:pt-24 pb-10">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted mb-6">Tab 01 · The Floor</div>
+          <h1 className="serif serif-display text-5xl md:text-7xl lg:text-8xl font-semibold leading-[1.02] tracking-tight mb-10">
+            A licensed architect with 20 years of experience earns&nbsp;<span className="num">$150,000</span>.
+            <br/>
+            <span className="text-faint">A third-year software engineer earns more.</span>
+          </h1>
+          <div className="space-y-5 text-lg md:text-xl text-muted leading-relaxed max-w-2xl">
+            <p>
+              The architect is licensed. She has spent <span className="text-main">13 years</span> on the path: a five-to-seven-year degree, 3,740 hours of supervised experience, and six exams. She carries professional liability for the buildings she stamps. The lawyer in her building earns the same. The doctor in the hospital she designed earns <span className="num text-main">$240,000+</span>. The software engineer who graduated college four years ago and has no license, no exam, no bar association, earns <span className="num text-main">$191,000</span>.
+            </p>
+            <p>
+              This is not about talent. It is about how the work is priced. Architecture used to be priced like medicine and law. In 1972, the floor came out, and nobody built another one.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab01_PullQuote() {
+      return (
+        <section className="max-w-4xl mx-auto px-6 py-20 md:py-28">
+          <p className="serif serif-text text-3xl md:text-5xl leading-[1.15] font-medium">
+            The architect designed the office. The lawyer in it earns the same. The doctor across the street earns twice as much. The engineer who built the website on the architect's phone earns&nbsp;<span className="text-accent">double or triple</span> at the senior level.
+          </p>
+          <p className="serif serif-text text-3xl md:text-5xl leading-[1.15] font-medium mt-4 text-faint">
+            All four did roughly the same amount of school.
+          </p>
+        </section>
+      );
+    }
+
+    function Tab01_SalaryCurves({ years, setYears }) {
+      // Salary curves by years post-graduation. Calibrated to BLS + AIA + AAMC + Levels.fyi.
+      // Architect: starts low, plateaus around $150K at 20 yrs (AIA Senior Architect band)
+      // Lawyer: starts $200K BigLaw, partner track to $450K+ at 15-20 yrs
+      // Physician: starts $65K residency, jumps to $250K at attending (~yr 7-8), grows to $400K
+      // Software: starts $95K, $312K at senior (5-8 yrs), $457K at staff (8-12 yrs)
+      function archAt(y) {
+        if (y < 0) return 0;
+        if (y <= 4) return 58_000 + y * 5_000;            // $58K → $78K (unlicensed AXP)
+        if (y <= 8) return 78_000 + (y - 4) * 6_000;      // licensure step, $78K → $102K
+        if (y <= 14) return 102_000 + (y - 8) * 6_000;    // $102K → $138K
+        if (y <= 25) return 138_000 + (y - 14) * 1_500;   // plateau into senior, $138K → $154K
+        return 154_000;
+      }
+      function lawAt(y) {
+        if (y < 0) return 0;
+        if (y <= 1) return 200_000;
+        if (y <= 8) return 200_000 + (y - 1) * 25_000;    // associate ladder, $200K → $375K
+        if (y <= 15) return 375_000 + (y - 8) * 25_000;   // partner track, $375K → $550K
+        return 550_000;
+      }
+      function medAt(y) {
+        if (y < 0) return 0;
+        if (y <= 4) return 65_000 + y * 2_000;            // residency $65K → $73K
+        if (y <= 7) return 73_000 + (y - 4) * 60_000;     // jump to attending $73K → $253K
+        if (y <= 18) return 253_000 + (y - 7) * 12_000;   // $253K → $385K
+        return 385_000;
+      }
+      function softAt(y) {
+        if (y < 0) return 0;
+        if (y <= 2) return 95_000 + y * 25_000;           // junior, $95K → $145K
+        if (y <= 5) return 145_000 + (y - 2) * 55_000;    // mid → senior, $145K → $310K
+        if (y <= 9) return 310_000 + (y - 5) * 36_000;    // staff, $310K → $454K
+        if (y <= 15) return 454_000 + (y - 9) * 25_000;   // principal, $454K → $604K
+        return 604_000;
+      }
+
+      const w = 700, h = 380, pad = { l: 60, r: 20, t: 30, b: 40 };
+      const xMax = 25, yMax = 700_000;
+      const xScale = (x) => pad.l + (x / xMax) * (w - pad.l - pad.r);
+      const yScale = (y) => h - pad.b - (y / yMax) * (h - pad.t - pad.b);
+
+      function path(fn) {
+        const pts = [];
+        for (let x = 0; x <= xMax; x += 0.5) {
+          pts.push(`${xScale(x)},${yScale(fn(x))}`);
+        }
+        return 'M' + pts.join(' L');
+      }
+
+      const lines = [
+        { name: 'Software engineer', fn: softAt, color: 'var(--soft)', dash: '0' },
+        { name: 'Physician',         fn: medAt,  color: 'var(--med)',  dash: '0' },
+        { name: 'Lawyer',            fn: lawAt,  color: 'var(--law)',  dash: '0' },
+        { name: 'Architect',         fn: archAt, color: 'var(--arch)', dash: '0' }
+      ];
+
+      const yTicks = [0, 100_000, 200_000, 300_000, 400_000, 500_000, 600_000, 700_000];
+      const xTicks = [0, 5, 10, 15, 20, 25];
+
+      const atYear = lines.map(l => ({ ...l, value: l.fn(years) }))
+                          .sort((a, b) => b.value - a.value);
+
+      return (
+        <section className="bg-cream-sunken border-y border-line py-16 md:py-20">
+          <div className="max-w-5xl mx-auto px-6">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">Same school, different floor</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Move the slider. Watch the gap open.</h2>
+            <p className="text-muted max-w-2xl mb-8">
+              Each line is base salary by years since graduating undergrad. The architect curve goes flat after year 14. The other three keep climbing. By year 20, the licensed architect earns less than every other comparison line — including the one with no license at all.
+            </p>
+
+            <div className="bg-cream-raised border border-line-faint rounded-sm p-4 md:p-6 mb-6">
+              <div className="flex items-baseline justify-between mb-3">
+                <span className="text-sm text-muted">years since undergrad</span>
+                <span className="serif text-3xl md:text-4xl font-semibold num tracking-tight">{years}</span>
+              </div>
+              <input type="range" min="0" max="25" step="1" value={years} onChange={e => setYears(parseInt(e.target.value))} className="w-full" />
+              <div className="flex justify-between text-xs text-muted mt-2 num">
+                <span>0</span><span>5</span><span>10</span><span>15</span><span>20</span><span>25</span>
+              </div>
+            </div>
+
+            <div className="bg-cream-raised border border-line-faint rounded-sm p-4 md:p-6 overflow-hidden">
+              <svg viewBox={`0 0 ${w} ${h}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+                {/* Y grid */}
+                {yTicks.map(t => (
+                  <g key={t}>
+                    <line x1={pad.l} x2={w - pad.r} y1={yScale(t)} y2={yScale(t)} stroke="var(--line-faint)" strokeWidth="1"/>
+                    <text x={pad.l - 8} y={yScale(t) + 4} fontSize="11" fill="var(--text-muted)" textAnchor="end" className="num">{formatMoney(t)}</text>
+                  </g>
+                ))}
+                {/* X ticks */}
+                {xTicks.map(t => (
+                  <g key={t}>
+                    <text x={xScale(t)} y={h - pad.b + 18} fontSize="11" fill="var(--text-muted)" textAnchor="middle" className="num">{t}</text>
+                  </g>
+                ))}
+                {/* Vertical year line */}
+                <line x1={xScale(years)} x2={xScale(years)} y1={pad.t} y2={h - pad.b} stroke="var(--text)" strokeWidth="1" strokeDasharray="3 3" opacity="0.4"/>
+
+                {/* Lines */}
+                {lines.map((l, i) => (
+                  <path key={i} d={path(l.fn)} fill="none" stroke={l.color} strokeWidth="2.5" className="draw-in" style={{ animationDelay: `${i * 0.15}s` }}/>
+                ))}
+
+                {/* Dots at year */}
+                {lines.map((l, i) => (
+                  <circle key={i} cx={xScale(years)} cy={yScale(l.fn(years))} r="5" fill={l.color} stroke="var(--bg-raised)" strokeWidth="2"/>
+                ))}
+
+                {/* X axis label */}
+                <text x={(w - pad.r + pad.l) / 2} y={h - 5} fontSize="11" fill="var(--text-muted)" textAnchor="middle">years post-undergrad</text>
+              </svg>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mt-4 pt-4 border-t border-line-faint">
+                {atYear.map((l, i) => (
+                  <div key={`${l.name}-${years}`} className="fade-in">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-3 h-3 rounded-full" style={{ background: l.color }}></span>
+                      <span className="text-xs uppercase tracking-wider text-muted">{l.name}</span>
+                    </div>
+                    <div className="serif text-xl md:text-2xl font-semibold num">{formatMoney(l.value)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-xs text-muted italic mt-4 max-w-2xl">
+              Sources: BLS OEWS May 2024 (medians), AIA Compensation Survey 2025–26 (architect bands), NALP 2025 (lawyer associate scale), AAMC + Medscape (physician trajectory), Levels.fyi 2025 (software TC). Base salary only — total compensation at top tech companies adds 50–150% via equity.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab01_Thesis() {
+      const compares = [
+        { a: 'Architect',         b: 'Software engineer', archYrs: 20, otherYrs: 4,  archPay: 150_000, otherPay: 191_000, otherLabel: '4 years out of college' },
+        { a: 'Architect',         b: 'Lawyer',            archYrs: 20, otherYrs: 7,  archPay: 150_000, otherPay: 200_000, otherLabel: 'first-year BigLaw associate' },
+        { a: 'Architect',         b: 'Physician',         archYrs: 20, otherYrs: 12, archPay: 150_000, otherPay: 285_000, otherLabel: 'mid-career attending' }
+      ];
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-10">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">Three comparisons</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Each one ends the same way.</h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-3">
+            {compares.map((c, i) => {
+              const ratio = c.otherPay / c.archPay;
+              return (
+                <div key={i} className="bg-cream-raised border border-line-faint p-5 rounded-sm">
+                  <div className="text-xs uppercase tracking-wider text-muted mb-3">{c.a} vs {c.b}</div>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="serif text-xl font-semibold">20-yr licensed architect</div>
+                      <div className="num text-2xl serif font-semibold">{formatMoney(c.archPay)}</div>
+                    </div>
+                    <div className="border-t border-line-faint pt-3">
+                      <div className="serif text-xl font-semibold">{c.b}</div>
+                      <div className="text-xs text-muted mb-1">{c.otherLabel}</div>
+                      <div className="num text-2xl serif font-semibold text-accent">{formatMoney(c.otherPay)}</div>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-line-faint text-sm italic">
+                    {ratio >= 1 ? `${ratio.toFixed(2)}× the architect's pay` : `${(1/ratio).toFixed(2)}× the architect's pay`}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      );
+    }
+
+    function Tab01({ years, setYears, setActiveTab }) {
+      return (
+        <>
+          <Tab01_Hero/>
+          <Tab01_PullQuote/>
+          <Tab01_SalaryCurves years={years} setYears={setYears}/>
+          <Tab01_Thesis/>
+          <section className="max-w-4xl mx-auto px-6 py-12 md:py-16 border-t border-line-faint">
+            <p className="serif serif-text text-2xl md:text-3xl leading-snug font-medium mb-6">
+              The next tab is the year this happened.
+            </p>
+            <button onClick={() => setActiveTab(2)} className="text-sm uppercase tracking-wider text-accent hover:text-main transition border-b border-accent pb-1">Tab 02 · 1972 →</button>
+          </section>
+        </>
+      );
+    }
+
+    // ============================================================
+    // TAB 02 — 1972 (THE INFLECTION)
+    // ============================================================
+
+    function Tab02_Hero() {
+      return (
+        <section className="max-w-4xl mx-auto px-6 pt-16 md:pt-24 pb-10">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted mb-6">Tab 02 · 1972</div>
+          <h1 className="serif serif-display text-5xl md:text-7xl lg:text-8xl font-semibold leading-[1.02] tracking-tight mb-10">
+            The year the floor came&nbsp;out.
+          </h1>
+          <div className="space-y-5 text-lg md:text-xl text-muted leading-relaxed max-w-2xl">
+            <p>
+              For 64 years, the AIA published a mandatory minimum fee schedule. Architects who undercut their peers could be expelled. The dignity of the profession, in the AIA's words, "rested on its united front of expertise, not the cheapness of its competing members."
+            </p>
+            <p>
+              In May 1972, the U.S. Department of Justice filed Civil Action 992-72 against the American Institute of Architects under the Sherman Antitrust Act. The AIA settled the same month. The fee schedule was gone. So was the rule against undercutting. So was the rule against soliciting another architect's client.
+            </p>
+            <p>
+              In 1990, on Halloween, a second consent decree extended the prohibition to <em>any</em> form of pricing coordination — even an individual chapter discussing fees informally. It applied to all architects, not just AIA members.
+            </p>
+            <p>
+              Doctors and lawyers were investigated in the same era. Their associations adapted. Architecture's did not.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab02_Timeline() {
+      const events = HISTORY;
+      const yearMin = 1850, yearMax = 2010;
+      const w = 800, h = 240;
+      const pad = { l: 40, r: 40, t: 60, b: 30 };
+      const xScale = (y) => pad.l + ((y - yearMin) / (yearMax - yearMin)) * (w - pad.l - pad.r);
+      const axisY = h - pad.b;
+
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-10">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">A 133-year arc</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">From founding to surrender.</h2>
+            <p className="text-muted max-w-2xl">
+              The two pivot points are 1972 and 1990. The first removed the floor. The second made it illegal to suggest a new one.
+            </p>
+          </div>
+
+          <div className="bg-cream-raised border border-line-faint rounded-sm p-4 md:p-8 overflow-x-auto">
+            <svg viewBox={`0 0 ${w} ${h}`} className="w-full" preserveAspectRatio="xMidYMid meet" style={{ minWidth: '700px' }}>
+              {/* Axis line */}
+              <line x1={pad.l} x2={w - pad.r} y1={axisY} y2={axisY} stroke="var(--text-muted)" strokeWidth="1.5"/>
+              {/* Decade ticks */}
+              {[1860, 1880, 1900, 1920, 1940, 1960, 1980, 2000].map(y => (
+                <g key={y}>
+                  <line x1={xScale(y)} x2={xScale(y)} y1={axisY} y2={axisY + 5} stroke="var(--text-muted)" strokeWidth="1"/>
+                  <text x={xScale(y)} y={axisY + 18} fontSize="10" fill="var(--text-muted)" textAnchor="middle" className="num">{y}</text>
+                </g>
+              ))}
+
+              {/* Event markers */}
+              {events.map((e, i) => {
+                const x = xScale(e.year);
+                const stagger = i % 2 === 0 ? -1 : 1;
+                const dotY = axisY;
+                const labelY = stagger > 0 ? axisY - 15 : axisY + 35;
+                const yearOffset = stagger > 0 ? -32 : 18;
+                return (
+                  <g key={i}>
+                    <circle cx={x} cy={dotY} r={e.pivot ? 6 : 4} fill={e.pivot ? 'var(--accent)' : 'var(--text)'}/>
+                    {e.pivot && <circle cx={x} cy={dotY} r="11" fill="none" stroke="var(--accent)" strokeWidth="1" opacity="0.5"/>}
+                  </g>
+                );
+              })}
+            </svg>
+
+            <div className="grid md:grid-cols-2 gap-x-8 gap-y-5 mt-8 pt-6 border-t border-line-faint">
+              {events.map((e, i) => (
+                <div key={i} className={`flex gap-4 ${e.pivot ? 'md:col-span-2' : ''}`}>
+                  <div className="shrink-0">
+                    <div className={`serif text-2xl font-semibold num ${e.pivot ? 'text-accent' : 'text-main'}`}>{e.year}</div>
+                  </div>
+                  <div>
+                    <div className={`serif font-semibold ${e.pivot ? 'text-lg' : 'text-base'}`}>{e.label}</div>
+                    <div className="text-sm text-muted leading-snug mt-1">{e.note}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab02_RealComp() {
+      // Real (inflation-adjusted) compensation index, 1970 = 100
+      // Calibrated against BLS data: architect real wages essentially flat 1970-2025;
+      // lawyer and physician real wages rose substantially; software emerged from near zero.
+      const data = [
+        { year: 1970, arch: 100, law: 100, med: 100, soft: 0 },
+        { year: 1980, arch: 102, law: 115, med: 130, soft: 30 },
+        { year: 1990, arch: 105, law: 140, med: 165, soft: 70 },
+        { year: 2000, arch: 110, law: 175, med: 195, soft: 130 },
+        { year: 2010, arch: 108, law: 200, med: 215, soft: 180 },
+        { year: 2020, arch: 112, law: 230, med: 240, soft: 250 },
+        { year: 2025, arch: 115, law: 250, med: 255, soft: 290 }
+      ];
+      const w = 700, h = 360, pad = { l: 50, r: 30, t: 30, b: 40 };
+      const yMax = 320;
+      const xScale = (y) => pad.l + ((y - 1970) / (2025 - 1970)) * (w - pad.l - pad.r);
+      const yScale = (v) => h - pad.b - (v / yMax) * (h - pad.t - pad.b);
+
+      const lines = [
+        { name: 'Software',  key: 'soft', color: 'var(--soft)' },
+        { name: 'Physician', key: 'med',  color: 'var(--med)' },
+        { name: 'Lawyer',    key: 'law',  color: 'var(--law)' },
+        { name: 'Architect', key: 'arch', color: 'var(--arch)' }
+      ];
+
+      function path(key) {
+        return 'M' + data.map(d => `${xScale(d.year)},${yScale(d[key])}`).join(' L');
+      }
+
+      return (
+        <section className="bg-cream-sunken border-y border-line py-16 md:py-20">
+          <div className="max-w-5xl mx-auto px-6">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">Real pay since 1970</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Three lines kept climbing. One went flat.</h2>
+            <p className="text-muted max-w-2xl mb-8">
+              Indexed to 1970 = 100, adjusted for inflation. The architect line is essentially stalled. The other professions held or grew their pricing power. Software, which barely existed as an industry in 1970, eclipsed all three.
+            </p>
+
+            <div className="bg-cream-raised border border-line-faint rounded-sm p-4 md:p-6">
+              <svg viewBox={`0 0 ${w} ${h}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+                {/* 1972 vertical band */}
+                <rect x={xScale(1971)} y={pad.t} width={xScale(1973) - xScale(1971)} height={h - pad.t - pad.b} fill="var(--accent)" opacity="0.12"/>
+                <text x={xScale(1972)} y={pad.t - 10} fontSize="11" fill="var(--accent-strong)" textAnchor="middle" fontWeight="600" className="num">1972</text>
+
+                {/* 1990 vertical band */}
+                <rect x={xScale(1989.5)} y={pad.t} width={xScale(1990.5) - xScale(1989.5)} height={h - pad.t - pad.b} fill="var(--accent)" opacity="0.12"/>
+                <text x={xScale(1990)} y={pad.t - 10} fontSize="11" fill="var(--accent-strong)" textAnchor="middle" fontWeight="600" className="num">1990</text>
+
+                {/* Y grid */}
+                {[100, 150, 200, 250, 300].map(t => (
+                  <g key={t}>
+                    <line x1={pad.l} x2={w - pad.r} y1={yScale(t)} y2={yScale(t)} stroke="var(--line-faint)" strokeWidth="1"/>
+                    <text x={pad.l - 8} y={yScale(t) + 4} fontSize="10" fill="var(--text-muted)" textAnchor="end" className="num">{t}</text>
+                  </g>
+                ))}
+                {/* Baseline */}
+                <line x1={pad.l} x2={w - pad.r} y1={yScale(100)} y2={yScale(100)} stroke="var(--text-muted)" strokeWidth="1" strokeDasharray="3 3"/>
+
+                {/* X ticks */}
+                {[1970, 1980, 1990, 2000, 2010, 2020].map(t => (
+                  <text key={t} x={xScale(t)} y={h - pad.b + 18} fontSize="10" fill="var(--text-muted)" textAnchor="middle" className="num">{t}</text>
+                ))}
+
+                {/* Lines */}
+                {lines.map((l, i) => (
+                  <path key={i} d={path(l.key)} fill="none" stroke={l.color} strokeWidth="2.5" className="draw-in" style={{ animationDelay: `${i * 0.2}s` }}/>
+                ))}
+
+                {/* End-point labels */}
+                {lines.map((l, i) => {
+                  const last = data[data.length - 1];
+                  return (
+                    <g key={i}>
+                      <circle cx={xScale(last.year)} cy={yScale(last[l.key])} r="4" fill={l.color}/>
+                      <text x={xScale(last.year) + 8} y={yScale(last[l.key]) + 4} fontSize="11" fill={l.color} fontWeight="600" className="num">{last[l.key]}</text>
+                    </g>
+                  );
+                })}
+              </svg>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 pt-4 border-t border-line-faint">
+                {lines.map((l, i) => (
+                  <div key={i}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-3 h-3 rounded-full" style={{ background: l.color }}></span>
+                      <span className="text-xs uppercase tracking-wider text-muted">{l.name}</span>
+                    </div>
+                    <div className="serif text-base font-semibold num">+{data[data.length-1][l.key] - 100}%</div>
+                    <div className="text-xs text-muted">since 1970</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-xs text-muted italic mt-4 max-w-2xl">
+              Index values smoothed from BLS Occupational Employment data, ABA Profile of the Legal Profession, AAMC physician compensation surveys, and BEA computer industry wage series. 1970 = 100 in real (inflation-adjusted) dollars.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab02_Housing() {
+      // Median home price-to-income ratio over time (Census + FRED)
+      // 1970: 3.2x, 1985: 3.5x, 2000: 4.0x, 2010: 4.0x, 2020: 5.4x, 2025: 5.0x
+      // Architect real wage index (1970=100): essentially flat
+      const data = [
+        { year: 1970, archWage: 100, homeRatio: 3.2 },
+        { year: 1980, archWage: 102, homeRatio: 3.4 },
+        { year: 1990, archWage: 105, homeRatio: 3.5 },
+        { year: 2000, archWage: 110, homeRatio: 4.0 },
+        { year: 2010, archWage: 108, homeRatio: 4.5 },
+        { year: 2020, archWage: 112, homeRatio: 5.4 },
+        { year: 2025, archWage: 115, homeRatio: 5.0 }
+      ];
+      const w = 700, h = 360, pad = { l: 50, r: 50, t: 30, b: 40 };
+      const xScale = (y) => pad.l + ((y - 1970) / (2025 - 1970)) * (w - pad.l - pad.r);
+      // Two y-axes: left for wage index (60-160), right for ratio (0-7)
+      const yWageScale = (v) => h - pad.b - ((v - 60) / (160 - 60)) * (h - pad.t - pad.b);
+      const yRatioScale = (v) => h - pad.b - ((v - 0) / (7 - 0)) * (h - pad.t - pad.b);
+
+      const wagePath = 'M' + data.map(d => `${xScale(d.year)},${yWageScale(d.archWage)}`).join(' L');
+      const ratioPath = 'M' + data.map(d => `${xScale(d.year)},${yRatioScale(d.homeRatio)}`).join(' L');
+
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-8">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">The hidden tax</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">The architect's wage held flat. The thing the architect designs got twice as expensive.</h2>
+            <p className="text-muted max-w-2xl">
+              Real wages tell only half the story. The other half: relative to what the architect designs and lives in, the architect lost ground. In 1970, the median home cost <span className="num text-main">3.2 years</span> of median household income. In 2022 it peaked at <span className="num text-main">5.83 years</span>. The architect's purchasing power for housing was effectively cut in half — even as the real wage line stayed flat.
+            </p>
+          </div>
+
+          <div className="bg-cream-raised border border-line-faint rounded-sm p-4 md:p-6">
+            <svg viewBox={`0 0 ${w} ${h}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+              {/* Y-grid for wage (left axis) */}
+              {[60, 80, 100, 120, 140, 160].map(t => (
+                <g key={t}>
+                  <line x1={pad.l} x2={w - pad.r} y1={yWageScale(t)} y2={yWageScale(t)} stroke="var(--line-faint)" strokeWidth="1"/>
+                  <text x={pad.l - 8} y={yWageScale(t) + 4} fontSize="10" fill="var(--arch)" textAnchor="end" className="num">{t}</text>
+                </g>
+              ))}
+              {/* Right axis labels for ratio */}
+              {[0, 2, 4, 6].map(t => (
+                <text key={t} x={w - pad.r + 8} y={yRatioScale(t) + 4} fontSize="10" fill="var(--accent)" textAnchor="start" className="num">{t}x</text>
+              ))}
+
+              {/* Baseline (1970 = 100 wage) */}
+              <line x1={pad.l} x2={w - pad.r} y1={yWageScale(100)} y2={yWageScale(100)} stroke="var(--text-muted)" strokeWidth="1" strokeDasharray="3 3"/>
+
+              {/* X ticks */}
+              {[1970, 1980, 1990, 2000, 2010, 2020].map(t => (
+                <text key={t} x={xScale(t)} y={h - pad.b + 18} fontSize="10" fill="var(--text-muted)" textAnchor="middle" className="num">{t}</text>
+              ))}
+
+              {/* Architect wage path */}
+              <path d={wagePath} fill="none" stroke="var(--arch)" strokeWidth="2.5" className="draw-in"/>
+              {/* Home price-to-income ratio path */}
+              <path d={ratioPath} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeDasharray="6 4" className="draw-in" style={{ animationDelay: '0.3s' }}/>
+
+              {/* Endpoints */}
+              <g>
+                <circle cx={xScale(2025)} cy={yWageScale(115)} r="4" fill="var(--arch)"/>
+                <text x={xScale(2025) - 8} y={yWageScale(115) - 8} fontSize="11" fill="var(--arch)" fontWeight="600" textAnchor="end">wage: +15%</text>
+              </g>
+              <g>
+                <circle cx={xScale(2025)} cy={yRatioScale(5.0)} r="4" fill="var(--accent)"/>
+                <text x={xScale(2025) - 8} y={yRatioScale(5.0) + 18} fontSize="11" fill="var(--accent)" fontWeight="600" textAnchor="end">home: 5.0x income</text>
+              </g>
+
+              {/* Axis labels */}
+              <text x={pad.l - 38} y={pad.t + 15} fontSize="10" fill="var(--arch)" fontWeight="600" textAnchor="start">real wage index</text>
+              <text x={w - pad.r + 38} y={pad.t + 15} fontSize="10" fill="var(--accent)" fontWeight="600" textAnchor="end">price-to-income ratio</text>
+            </svg>
+
+            <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-line-faint">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-3 h-3 rounded-full" style={{ background: 'var(--arch)' }}></span>
+                  <span className="text-xs uppercase tracking-wider text-muted">architect real wage</span>
+                </div>
+                <div className="serif text-lg font-semibold num">+15%</div>
+                <div className="text-xs text-muted">since 1970, inflation-adjusted</div>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-3 h-3 rounded-full" style={{ background: 'var(--accent)' }}></span>
+                  <span className="text-xs uppercase tracking-wider text-muted">home cost vs income</span>
+                </div>
+                <div className="serif text-lg font-semibold num">3.2x → 5.0x</div>
+                <div className="text-xs text-muted">+56% relative to income</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 max-w-2xl text-muted leading-relaxed space-y-3">
+            <p>
+              Put differently: a 1970 architect could buy the median home with about three years of pay. A 2025 architect needs five. The profession that designs America's housing got priced out of America's housing.
+            </p>
+          </div>
+
+          <p className="text-xs text-muted italic mt-4 max-w-2xl">
+            Sources: U.S. Census Bureau median home sale price; Federal Reserve median household income; Joint Center for Housing Studies (Harvard) ratio analysis. Architect wage index calibrated against BLS architect series (real, CPI-adjusted), 1970 = 100.
+          </p>
+        </section>
+      );
+    }
+
+    function Tab02_Quote() {
+      return (
+        <section className="max-w-4xl mx-auto px-6 py-20 md:py-28">
+          <p className="serif serif-text text-2xl md:text-4xl leading-[1.2] font-medium">
+            "Whenever a service is commoditized, sooner or later most providers will be forced to gradually pare back services, and in the end be forced to sacrifice quality on the altar of competition."
+          </p>
+          <p className="text-sm text-muted mt-6 italic">
+            — Charles Nelson, AIA, on the 1972 consent decree
+          </p>
+          <div className="mt-12 max-w-2xl space-y-4 text-muted leading-relaxed">
+            <p>
+              In 2014, the architect Peggy Deamer asked AIA CEO Robert Ivy why the institute didn't advocate for better wages for its members. He told her even <em>talking</em> about wages and fees was off-limits because of the antitrust history.
+            </p>
+            <p>
+              Forty-two years after the consent decree. Architects had absorbed the lesson so deeply that they could no longer discuss their own value out loud.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab02({ setActiveTab }) {
+      return (
+        <>
+          <Tab02_Hero/>
+          <Tab02_Timeline/>
+          <Tab02_RealComp/>
+          <Tab02_Housing/>
+          <Tab02_Quote/>
+          <section className="max-w-4xl mx-auto px-6 py-12 md:py-16 border-t border-line-faint">
+            <p className="serif serif-text text-2xl md:text-3xl leading-snug font-medium mb-6">
+              Next: the 13-year pipeline that filters for people who can afford to be underpaid.
+            </p>
+            <button onClick={() => setActiveTab(3)} className="text-sm uppercase tracking-wider text-accent hover:text-main transition border-b border-accent pb-1">Tab 03 · The Pipeline →</button>
+          </section>
+        </>
+      );
+    }
+
+
+    // ============================================================
+    // TAB 03 — THE PIPELINE
+    // ============================================================
+
+    function Tab03_Hero() {
+      return (
+        <section className="max-w-4xl mx-auto px-6 pt-16 md:pt-24 pb-10">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted mb-6">Tab 03 · The 13-Year Pipeline</div>
+          <h1 className="serif serif-display text-5xl md:text-7xl lg:text-8xl font-semibold leading-[1.02] tracking-tight mb-10">
+            <span className="num">13.3</span> years to a license. <span className="text-faint">37% drop out.</span>
+          </h1>
+          <div className="space-y-5 text-lg md:text-xl text-muted leading-relaxed max-w-2xl">
+            <p>
+              According to NCARB's 2025 report, the average architecture candidate spends <span className="text-main">13.3 years</span> from the start of college to receiving a license. The number peaked at 15.6 years in 2008. NCARB's own data: <span className="text-main">37% of candidates stop pursuing licensure</span> over a 10-year period. The pipeline is a filter, and what it filters for is people who can afford to be underpaid for over a decade.
+            </p>
+            <p>
+              In 2015, NCARB cut the experience hour requirement from 5,600 to 3,740. In 2016, they renamed IDP to AXP. The structure of the gauntlet got slightly easier. The economic shape of it did not.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab03_Pipeline() {
+      const stages = [
+        { name: 'Architecture school',  years: 5.5, pay: 0,       cost: 60_000, note: '5–7 yr B.Arch or 4-yr pre-prof + M.Arch. Average architecture grad: $60K+ debt, often higher.' },
+        { name: 'AXP (formerly IDP)',    years: 4.9, pay: 58_000, cost: 0,      note: '3,740 hours under licensed supervision. Median entry-level pay: ~$58K. Half the time, you cannot legally call yourself an architect.' },
+        { name: 'ARE (6 divisions)',     years: 2.5, pay: 65_000, cost: 1_260,  note: 'Six exams at $210 each. Many candidates take two passes. Often overlaps AXP.' }
+      ];
+      const total = stages.reduce((s, x) => s + x.years, 0);
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-10">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">The path, broken into pieces</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Three stages. One license. {total.toFixed(1)} years.</h2>
+          </div>
+
+          <div className="bg-cream-raised border border-line-faint rounded-sm p-6 md:p-8">
+            {/* Bar visualization */}
+            <div className="mb-8">
+              <div className="flex h-12 rounded-sm overflow-hidden border border-line-faint">
+                {stages.map((s, i) => (
+                  <div key={i} className="flex items-center justify-center text-xs font-semibold text-[var(--bg)] num"
+                       style={{ width: `${(s.years / total) * 100}%`, background: i === 0 ? 'var(--text)' : i === 1 ? 'var(--accent)' : 'var(--accent-strong)' }}>
+                    {s.years} yr
+                  </div>
+                ))}
+              </div>
+              <div className="flex text-xs text-muted mt-2 num">
+                <span>year 0</span>
+                <span className="ml-auto">year {total.toFixed(1)}</span>
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              {stages.map((s, i) => (
+                <div key={i} className="grid md:grid-cols-12 gap-4 pb-5 border-b border-line-faint last:border-0">
+                  <div className="md:col-span-4">
+                    <div className="serif text-xl font-semibold">{s.name}</div>
+                    <div className="text-xs text-muted num mt-1">{s.years} years average</div>
+                  </div>
+                  <div className="md:col-span-3">
+                    <div className="text-xs uppercase tracking-wider text-muted mb-1">pay</div>
+                    <div className="serif text-lg font-semibold num">{s.pay > 0 ? formatMoney(s.pay) + '/yr' : '—'}</div>
+                    {s.cost > 0 && <div className="text-xs text-muted num mt-1">+ {formatMoney(s.cost)} cost</div>}
+                  </div>
+                  <div className="md:col-span-5 text-sm text-muted leading-snug">{s.note}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-xs text-muted italic mt-4 max-w-2xl">
+            Source: NCARB by the Numbers 2024 &amp; 2025; AIA Compensation Survey 2025–26; Architects Foundation student debt survey.
+          </p>
+        </section>
+      );
+    }
+
+    function Tab03_Comparison() {
+      const paths = [
+        { prof: 'Architect',          color: 'var(--arch)', yrsToLicense: 13.3, candidatePay: 58_000,  startSeniorPay: 96_690,  notes: '5–7 yr school + 4.9 yr AXP + 2.5 yr ARE. License at age ~32.' },
+        { prof: 'Lawyer',             color: 'var(--law)',  yrsToLicense: 7,    candidatePay: 200_000, startSeniorPay: 200_000, notes: '4 yr undergrad + 3 yr JD + bar exam. BigLaw associate from year 1.' },
+        { prof: 'Physician',          color: 'var(--med)',  yrsToLicense: 11,   candidatePay: 65_000,  startSeniorPay: 240_000, notes: '4 yr undergrad + 4 yr MD + 3–7 yr residency. Residents are paid.' },
+        { prof: 'Software engineer',  color: 'var(--soft)', yrsToLicense: 0,    candidatePay: 95_000,  startSeniorPay: 191_000, notes: 'No license. No bar. No board. Often no degree at all.' }
+      ];
+      return (
+        <section className="bg-cream-sunken border-y border-line py-16 md:py-20">
+          <div className="max-w-5xl mx-auto px-6">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">Pipeline vs pipeline</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">The longest path. The lowest pay along the way.</h2>
+            <p className="text-muted max-w-2xl mb-8">
+              Architecture takes longer to license than law. It pays its candidates less than medicine pays its residents. And it competes for talent against an industry that requires no credentialing at all.
+            </p>
+
+            <div className="bg-cream-raised border border-line-faint rounded-sm p-4 md:p-6">
+              <div className="grid grid-cols-12 gap-3 text-xs uppercase tracking-wider text-muted pb-3 border-b border-line-faint">
+                <div className="col-span-3 md:col-span-3">profession</div>
+                <div className="col-span-3 md:col-span-2 num">yrs to license</div>
+                <div className="col-span-3 md:col-span-3 num">candidate pay</div>
+                <div className="col-span-3 md:col-span-4 hidden md:block">notes</div>
+              </div>
+              {paths.map((p, i) => (
+                <div key={i} className="grid grid-cols-12 gap-3 py-4 border-b border-line-faint last:border-0 items-baseline">
+                  <div className="col-span-3 flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{ background: p.color }}></span>
+                    <span className="serif font-semibold text-sm md:text-base">{p.prof}</span>
+                  </div>
+                  <div className="col-span-3 md:col-span-2 serif text-lg md:text-xl font-semibold num">{p.yrsToLicense > 0 ? p.yrsToLicense : '—'}</div>
+                  <div className="col-span-3 md:col-span-3 num text-sm md:text-base">{formatMoney(p.candidatePay)}/yr</div>
+                  <div className="col-span-3 md:col-span-4 text-xs md:text-sm text-muted hidden md:block">{p.notes}</div>
+                  <div className="col-span-12 text-xs text-muted md:hidden mt-1">{p.notes}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* The visual */}
+            <div className="mt-8 bg-cream-raised border border-line-faint rounded-sm p-4 md:p-6">
+              <div className="text-xs uppercase tracking-wider text-muted mb-4">years from start of college to first day of full professional pay</div>
+              <div className="space-y-3">
+                {paths.map((p, i) => {
+                  const widthPct = Math.max(2, (p.yrsToLicense / 14) * 100);
+                  return (
+                    <div key={i}>
+                      <div className="flex justify-between items-baseline mb-1">
+                        <span className="text-sm font-medium">{p.prof}</span>
+                        <span className="num text-sm text-muted">{p.yrsToLicense > 0 ? `${p.yrsToLicense} yrs` : 'immediate'}</span>
+                      </div>
+                      <div className="h-6 bg-[var(--line-faint)] rounded-sm overflow-hidden">
+                        <div className="h-full transition-all duration-700" style={{ width: `${widthPct}%`, background: p.color }}></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab03_Math() {
+      // Cumulative earnings + debt by age 30, starting college at 18
+      // Architect: $60K debt, 5.5 yrs school (no income), 4.9 yrs AXP at avg $62K, 2.5 yrs ARE overlap
+      // Lawyer: $180K debt, 7 yrs school, then $200K x 5 yrs
+      // Physician: $250K debt, 8 yrs school, then 4 yrs residency at $70K avg
+      // Software: $40K debt, 4 yrs school, then 8 yrs at avg $145K
+      const profiles = [
+        { prof: 'Architect',          color: 'var(--arch)', debt: 60_000,  earnings: 5 * 62_000,        netByAge30: 5 * 62_000 - 60_000 },
+        { prof: 'Lawyer',             color: 'var(--law)',  debt: 180_000, earnings: 5 * 230_000,       netByAge30: 5 * 230_000 - 180_000 },
+        { prof: 'Physician',          color: 'var(--med)',  debt: 250_000, earnings: 4 * 70_000,        netByAge30: 4 * 70_000 - 250_000 },
+        { prof: 'Software engineer',  color: 'var(--soft)', debt: 40_000,  earnings: 8 * 145_000,       netByAge30: 8 * 145_000 - 40_000 }
+      ];
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-10">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">The math by age 30</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Lifetime earnings minus debt, all four professions, age 18 to 30.</h2>
+            <p className="text-muted max-w-2xl">
+              The architect spent half a decade as a candidate making $58–65K. The software engineer spent eight years out of college at $145K average. By 30, the gap is structural.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {profiles.map((p, i) => (
+              <div key={i} className="bg-cream-raised border border-line-faint p-5 rounded-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-3 h-3 rounded-full" style={{ background: p.color }}></span>
+                  <span className="serif text-xl font-semibold">{p.prof}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-muted mb-1">school debt</div>
+                    <div className="num text-loss serif font-semibold">−{formatMoney(p.debt)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-muted mb-1">earnings to 30</div>
+                    <div className="num text-gain serif font-semibold">+{formatMoney(p.earnings)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-muted mb-1">net</div>
+                    <div className={`num serif font-semibold ${p.netByAge30 >= 500_000 ? 'text-accent' : ''}`}>{formatMoney(p.netByAge30)}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-xs text-muted italic mt-6 max-w-2xl">
+            Debt figures from College Factual (M.Arch national average), AAMC (median medical school debt), Law School Transparency (median JD debt), and federal undergraduate norms for CS. Earnings from AIA, NALP, AAMC, BLS, and Levels.fyi base salary data. Excludes total comp / equity for software, which would widen the gap further.
+          </p>
+        </section>
+      );
+    }
+
+    function Tab03({ setActiveTab }) {
+      return (
+        <>
+          <Tab03_Hero/>
+          <Tab03_Pipeline/>
+          <Tab03_Comparison/>
+          <Tab03_Math/>
+          <section className="max-w-4xl mx-auto px-6 py-12 md:py-16 border-t border-line-faint">
+            <p className="serif serif-text text-2xl md:text-3xl leading-snug font-medium mb-6">
+              The math is brutal. The pedagogy makes it worse.
+            </p>
+            <button onClick={() => setActiveTab(4)} className="text-sm uppercase tracking-wider text-accent hover:text-main transition border-b border-accent pb-1">Tab 04 · The Roark Tax →</button>
+          </section>
+        </>
+      );
+    }
+
+
+    // ============================================================
+    // TAB 04 — THE HOWARD ROARK TAX
+    // ============================================================
+
+    function Tab04_Hero() {
+      return (
+        <section className="max-w-4xl mx-auto px-6 pt-16 md:pt-24 pb-10">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted mb-6">Tab 04 · The Roark Tax</div>
+          <h1 className="serif serif-display text-5xl md:text-7xl lg:text-8xl font-semibold leading-[1.02] tracking-tight mb-10">
+            Architecture is the only profession whose cultural template was written by Ayn Rand.
+          </h1>
+          <div className="space-y-5 text-lg md:text-xl text-muted leading-relaxed max-w-2xl">
+            <p>
+              Howard Roark refuses to compromise. Howard Roark works alone. Howard Roark suffers for the work. Howard Roark would rather destroy his building than see it built wrong. The Fountainhead came out in 1943. Architecture students still read it. Many of them still identify with it.
+            </p>
+            <p>
+              Medicine has House. Law has Atticus Finch. Software has the dropout-billionaire founder. None of these characters are paid in passion. They are all paid in money or moral authority. Roark is paid in neither. He is paid in dignity.
+            </p>
+            <p>
+              When the cultural template is "the noble suffering individual," it becomes very hard to negotiate.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab04_PopCulture() {
+      // Real architect median: $96,690 (BLS May 2024)
+      // Home values estimated from recent comps for the on-screen locations:
+      // - SoHo cast-iron loft (Three Men and a Baby, NYC): ~$5M today
+      // - UWS 2BR (HIMYM, Ted Mosby): ~$2.4M condo today
+      // - Studio City split-level (Brady Bunch, supports family of 8): ~$3.2M today
+      // Income-to-afford: 5x rule for purchase. The architect would need 5–10x the median to live in any of these.
+      const pop = [
+        { show: 'Three Men and a Baby (1987)',  character: 'Peter Mitchell', actor: 'Tom Selleck',     home: 'Cast-iron SoHo loft, Manhattan',           homeValue: 5_000_000, needed: 1_000_000 },
+        { show: 'How I Met Your Mother',         character: 'Ted Mosby',       actor: 'Josh Radnor',     home: 'Upper West Side 2BR, Manhattan',           homeValue: 2_400_000, needed: 480_000 },
+        { show: 'The Brady Bunch',               character: 'Mike Brady',      actor: 'Robert Reed',     home: 'Studio City split-level, supports a family of 8', homeValue: 3_200_000, needed: 640_000 }
+      ];
+
+      return (
+        <section className="bg-cream-sunken border-y border-line py-16 md:py-20">
+          <div className="max-w-5xl mx-auto px-6">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">The other half of the lie</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Pop culture says architects live in lofts. The math says otherwise.</h2>
+            <p className="text-muted max-w-2xl mb-8">
+              On screen, the architect is shorthand for "creative professional with money." Tom Selleck in <em>Three Men and a Baby</em> living in a SoHo cast-iron loft. Ted Mosby in <em>How I Met Your Mother</em> on the Upper West Side. Mike Brady supporting a wife and six kids in Studio City on one income. The Howard Roark of <em>The Fountainhead</em>. The cultural code: architect equals refined, comfortable, well-housed. The BLS median says <span className="num text-main">$96,690</span>.
+            </p>
+
+            <div className="bg-cream-raised border border-line-faint rounded-sm overflow-hidden">
+              <div className="grid grid-cols-12 gap-3 px-5 py-3 text-xs uppercase tracking-wider text-muted bg-[var(--bg)] border-b border-line-faint">
+                <div className="col-span-12 md:col-span-4">show / character</div>
+                <div className="col-span-6 md:col-span-3">on-screen home</div>
+                <div className="col-span-6 md:col-span-2 num">est. value today</div>
+                <div className="col-span-12 md:col-span-3 num">income to afford</div>
+              </div>
+              {pop.map((p, i) => (
+                <div key={i} className="grid grid-cols-12 gap-3 px-5 py-4 border-b border-line-faint last:border-0 items-baseline">
+                  <div className="col-span-12 md:col-span-4">
+                    <div className="serif font-semibold text-sm md:text-base">{p.character}</div>
+                    <div className="text-xs text-muted">{p.show} · {p.actor}</div>
+                  </div>
+                  <div className="col-span-6 md:col-span-3 text-xs md:text-sm text-muted">{p.home}</div>
+                  <div className="col-span-6 md:col-span-2 num text-sm md:text-base">{formatMoney(p.homeValue)}</div>
+                  <div className="col-span-12 md:col-span-3 num text-sm md:text-base text-accent font-semibold">{formatMoney(p.needed)}/yr</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4 mt-6">
+              <div className="bg-cream-raised border border-line-faint p-5 rounded-sm">
+                <div className="text-xs uppercase tracking-wider text-muted mb-2">cultural perception</div>
+                <div className="serif text-2xl md:text-3xl font-semibold leading-tight">"Architects live in lofts."</div>
+                <p className="text-sm text-muted mt-3">A profession of cultivated taste, beautiful interiors, comfortable means.</p>
+              </div>
+              <div className="bg-cream-raised border-2 border-[var(--accent)] p-5 rounded-sm">
+                <div className="text-xs uppercase tracking-wider text-accent mb-2">actual median</div>
+                <div className="serif text-2xl md:text-3xl font-semibold leading-tight num">$96,690</div>
+                <p className="text-sm text-muted mt-3">BLS May 2024. The median architect cannot afford the apartment Ted Mosby supposedly rented, the loft Peter Mitchell owned, or the house Mike Brady designed.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted italic mt-4 max-w-2xl">
+              Home values estimated from current real-estate comps for the on-screen locations. Income-to-afford uses the 5x annual income rule of thumb for purchase, or 30% for rent. Tom Selleck's SoHo loft alone would require ten times the median architect's salary to own today.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab04_PedagogyComparison() {
+      const cols = [
+        {
+          field: 'Medicine',
+          color: 'var(--med)',
+          teaches: [
+            'Health systems and the business of medicine — required curriculum at most med schools',
+            'Insurance, billing, RVU economics covered in residency',
+            'AMA guides early-career compensation negotiation explicitly',
+            'Specialty choice taught as both clinical and economic decision'
+          ],
+          missing: 'Almost nothing. The AMA never lost the framing.'
+        },
+        {
+          field: 'Law',
+          color: 'var(--law)',
+          teaches: [
+            'Partner track and billable hours discussed from 1L year',
+            'BigLaw economics, Cravath scale, salary tiers — all openly discussed',
+            'NALP publishes salary surveys; firms recruit on transparent comp',
+            'Career services exist to optimize starting offers'
+          ],
+          missing: 'Public-interest tracks are honestly described as low-paid by design.'
+        },
+        {
+          field: 'Architecture',
+          color: 'var(--arch)',
+          teaches: [
+            '"Professional Practice" — typically one elective, last semester, often adjunct-taught',
+            'Studio crit, all-nighters, the heroic individual',
+            'Fee discussions explicitly avoided due to antitrust history',
+            'Career services often emphasize "passion" and "fit" over compensation'
+          ],
+          missing: 'Almost everything about money. The 1972 consent decree. The history. The math.'
+        },
+        {
+          field: 'Software',
+          color: 'var(--soft)',
+          teaches: [
+            'Levels.fyi, Blind, Glassdoor — radical comp transparency by industry default',
+            'Compensation negotiation is a CS major social ritual',
+            'Equity, vesting, and total comp taught informally everywhere',
+            'No license. No cultural shame about pricing.'
+          ],
+          missing: "There is no profession to gatekeep. So there's no shame to inherit."
+        }
+      ];
+      return (
+        <section className="max-w-6xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-10">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">What each field teaches its students about money</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Three professions teach business. One teaches dignity.</h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {cols.map((c, i) => (
+              <div key={i} className={`p-5 rounded-sm border ${c.field === 'Architecture' ? 'bg-cream-raised border-[var(--accent)]' : 'bg-cream-raised border-line-faint'}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-3 h-3 rounded-full" style={{ background: c.color }}></span>
+                  <span className="serif text-xl font-semibold">{c.field}</span>
+                </div>
+                <div className="text-xs uppercase tracking-wider text-muted mb-2">teaches</div>
+                <ul className="text-sm text-muted space-y-2 mb-4">
+                  {c.teaches.map((t, j) => (
+                    <li key={j} className="leading-snug">— {t}</li>
+                  ))}
+                </ul>
+                <div className="text-xs uppercase tracking-wider text-muted mb-2 mt-4 pt-3 border-t border-line-faint">missing</div>
+                <p className="text-sm italic leading-snug">{c.missing}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 max-w-3xl text-muted leading-relaxed">
+            <p>
+              The result: architects graduate with the same credential weight as lawyers and doctors, the same liability exposure as both, and significantly less language for talking about money than someone who learned to code from a YouTube tutorial.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab04_Quote() {
+      return (
+        <section className="bg-cream-sunken border-y border-line py-20 md:py-28">
+          <div className="max-w-4xl mx-auto px-6">
+            <p className="serif serif-text text-2xl md:text-4xl leading-[1.2] font-medium">
+              "We know that we shouldn't be talking about fees, so nobody talks about it."
+            </p>
+            <p className="text-sm text-muted mt-6 italic">
+              — Peggy Deamer, Yale School of Architecture
+            </p>
+            <div className="mt-10 max-w-2xl space-y-4 text-muted leading-relaxed">
+              <p>
+                When Deamer and a colleague pressed the AIA on why the institute didn't advocate for architect compensation, the CEO told them <em>discussing wages</em> was off-limits because of the 1972 and 1990 consent decrees.
+              </p>
+              <p>
+                The decrees prohibited price coordination. They did not prohibit talking. But the lesson architects absorbed was silence.
+              </p>
+              <p>
+                The pedagogy reproduces the silence. The silence reproduces the pricing. The pricing reproduces the pedagogy. This is what a self-stabilizing low-status equilibrium looks like.
+              </p>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab04_NoBusiness() {
+      // AIA's own job-definition language: most operational roles "preferred" or default to architects.
+      // Compare to peer professions where these roles are explicitly held by non-practitioners.
+      const rolesArch = [
+        { role: 'Managing Principal',  arch: 'Always a licensed architect',                                  peers: 'Law: managing partner is a lawyer (similar). Medicine: hospital CEO often MHA/MBA, not MD.' },
+        { role: 'Director of Operations', arch: '"Licensure preferred but not required" — usually an architect, per AIA', peers: 'Law: COO is a non-lawyer business operator. Tech: COO is a career operator.' },
+        { role: 'CFO / Director of Finance', arch: '"Generally an MBA or a licensed professional with significant experience" — often an architect, per AIA', peers: 'Law, medicine, tech: CPA or MBA. Almost never a practitioner.' },
+        { role: 'Business Development', arch: 'Per industry guidance: "ideally" has an architecture degree', peers: 'Law: dedicated CMO/BD lead, often non-lawyer. Tech: dedicated revenue org.' },
+        { role: 'Marketing Director',  arch: 'Often an architect or someone embedded in firm long enough to be one in spirit', peers: 'Every other industry: dedicated marketing professional.' },
+        { role: 'Project Manager',     arch: 'Almost always a licensed architect or candidate',              peers: 'Construction: PMs are PMs. Software: PMs are PMs. Different specialty entirely.' }
+      ];
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-10">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">The structural problem</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">There is no business direction. Everyone is an architect.</h2>
+            <p className="text-muted max-w-2xl">
+              At a typical small or mid-sized architecture firm, look around the leadership table. The Principal is an architect. The Managing Principal is an architect. The Project Managers are architects. Business Development, when it exists, is run by an architect. Even the CFO is often an architect with extra spreadsheet practice. The AIA's own job-definition document says the Director of Finance is "generally an MBA <em>or</em> a licensed professional" — that "or" is the entire problem.
+            </p>
+          </div>
+
+          <div className="bg-cream-raised border border-line-faint rounded-sm overflow-hidden mb-8">
+            <div className="grid grid-cols-12 gap-3 px-5 py-3 text-xs uppercase tracking-wider text-muted bg-[var(--bg)] border-b border-line-faint">
+              <div className="col-span-12 md:col-span-3">role</div>
+              <div className="col-span-12 md:col-span-4">at architecture firms</div>
+              <div className="col-span-12 md:col-span-5">at peer professions</div>
+            </div>
+            {rolesArch.map((r, i) => (
+              <div key={i} className="grid grid-cols-12 gap-3 px-5 py-4 border-b border-line-faint last:border-0">
+                <div className="col-span-12 md:col-span-3 serif font-semibold text-sm md:text-base">{r.role}</div>
+                <div className="col-span-12 md:col-span-4 text-xs md:text-sm" style={{ color: 'var(--arch)' }}>{r.arch}</div>
+                <div className="col-span-12 md:col-span-5 text-xs md:text-sm text-muted">{r.peers}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-cream-raised border border-line-faint p-5 rounded-sm">
+              <div className="text-xs uppercase tracking-wider text-muted mb-2">law firm leadership</div>
+              <ul className="text-sm text-muted space-y-2">
+                <li>— Managing Partner (lawyer)</li>
+                <li>— COO (non-lawyer, MBA/operations)</li>
+                <li>— CFO (CPA, MBA)</li>
+                <li>— CMO / Marketing (non-lawyer)</li>
+                <li>— Pricing Director (non-lawyer, often a quant)</li>
+                <li>— General Counsel (lawyer, but separate from operations)</li>
+              </ul>
+              <p className="text-xs text-muted mt-3 italic">Mixed table. Different professions running different functions.</p>
+            </div>
+            <div className="bg-cream-raised border-2 border-[var(--accent)] p-5 rounded-sm">
+              <div className="text-xs uppercase tracking-wider text-accent mb-2">architecture firm leadership</div>
+              <ul className="text-sm space-y-2">
+                <li>— Managing Principal (architect)</li>
+                <li>— Director of Ops (architect, usually)</li>
+                <li>— CFO (architect "or" MBA, per AIA)</li>
+                <li>— Marketing (architect, often)</li>
+                <li>— Business Development (architect, "ideally")</li>
+                <li>— Project Managers (architects)</li>
+              </ul>
+              <p className="text-xs text-accent mt-3 italic">One profession. Six roles. Same training. The CFO went to architecture school.</p>
+            </div>
+          </div>
+
+          <div className="mt-10 max-w-3xl text-muted leading-relaxed space-y-4">
+            <p>
+              This is not how peer professions are run. Hospitals don't have a chief surgeon doubling as the CFO. Law firms don't ask the senior partner to also handle the marketing strategy. Software companies don't promote the lead engineer to General Counsel. Each role goes to a person trained for that role.
+            </p>
+            <p>
+              Architecture firms inherited an artisan-era assumption: the master architect runs everything. In a 4-person atelier in 1875, that worked. In a 40-person firm in 2026 negotiating multi-stakeholder commercial contracts, it does not. The result: business decisions get made by people whose entire training said business was something to be quietly tolerated, not learned.
+            </p>
+            <p className="serif text-xl md:text-2xl font-semibold text-main">
+              You cannot price like a profession when the people pricing the work were trained in studio crit.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab04({ setActiveTab }) {
+      return (
+        <>
+          <Tab04_Hero/>
+          <Tab04_PopCulture/>
+          <Tab04_PedagogyComparison/>
+          <Tab04_Quote/>
+          <Tab04_NoBusiness/>
+          <section className="max-w-4xl mx-auto px-6 py-12 md:py-16 border-t border-line-faint">
+            <p className="serif serif-text text-2xl md:text-3xl leading-snug font-medium mb-6">
+              Next: where the money on a $100M building actually goes.
+            </p>
+            <button onClick={() => setActiveTab(5)} className="text-sm uppercase tracking-wider text-accent hover:text-main transition border-b border-accent pb-1">Tab 05 · The Value Leak →</button>
+          </section>
+        </>
+      );
+    }
+
+
+    // ============================================================
+    // TAB 05 — THE VALUE LEAK
+    // ============================================================
+
+    function Tab05_Hero() {
+      return (
+        <section className="max-w-4xl mx-auto px-6 pt-16 md:pt-24 pb-10">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted mb-6">Tab 05 · The Value Leak</div>
+          <h1 className="serif serif-display text-5xl md:text-7xl lg:text-8xl font-semibold leading-[1.02] tracking-tight mb-10">
+            A $100 million building. <span className="text-faint">$6 million for the architect. Once.</span>
+          </h1>
+          <div className="space-y-5 text-lg md:text-xl text-muted leading-relaxed max-w-2xl">
+            <p>
+              Architecture is the only major creative profession that captures no back-end on its work. Songwriters earn royalties for life plus 70 years. Authors earn royalties per copy. Software engineers hold equity that compounds. Filmmakers get residuals on every play. Patent holders license for 20 years. Even fashion designers monetize their name in perpetuity.
+            </p>
+            <p>
+              Architects designed the most valuable creative output in dollar terms — buildings — and built no royalty mechanism to capture any of the value those buildings generate over their lifetimes. The check is cashed at completion. The asset compounds for thirty years. The architect is not invited to that party.
+            </p>
+            <p>
+              This tab walks the leak in stages: the slice at completion, the appreciation over time, the absence of scale, the path not taken (Sears), the margin gradient, the missing back-end, the unsold accumulated IP, and a thought experiment that should make the whole thing feel as broken as it is.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab05_BuildingPie() {
+      // Stacked horizontal bar showing where the $100M goes
+      const data = BUILDING_PIE;
+      const total = data.reduce((s, x) => s + x.pct, 0);
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-10">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">A $100,000,000 building</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Where each dollar goes.</h2>
+            <p className="text-muted max-w-2xl">
+              These are industry-typical rule-of-thumb percentages on a hard-cost-driven mid-rise commercial project. The architect's slice can be lower on speculative residential, higher on complex institutional. Either way: the architect did the originating thinking and gets the smallest professional take.
+            </p>
+          </div>
+
+          <div className="bg-cream-raised border border-line-faint rounded-sm p-6 md:p-8">
+            <div className="flex h-16 rounded-sm overflow-hidden border border-line-faint mb-6">
+              {data.map((d, i) => (
+                <div key={i} className="flex items-center justify-center text-xs font-semibold text-[var(--bg)] num"
+                     style={{ width: `${d.pct}%`, background: d.highlight ? 'var(--accent)' : (i === 0 ? 'var(--text)' : i === 1 ? 'var(--text-muted)' : 'var(--text-faint)') }}>
+                  {d.pct}%
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              {data.map((d, i) => (
+                <div key={i} className={`grid grid-cols-12 gap-3 py-3 border-b border-line-faint last:border-0 ${d.highlight ? 'bg-[var(--bg)] -mx-2 px-2 rounded-sm' : ''}`}>
+                  <div className={`col-span-4 md:col-span-3 serif font-semibold ${d.highlight ? 'text-accent' : ''}`}>{d.who}</div>
+                  <div className={`col-span-2 num font-semibold serif text-lg ${d.highlight ? 'text-accent' : ''}`}>{d.pct}%</div>
+                  <div className={`col-span-2 num text-sm ${d.highlight ? 'text-accent' : 'text-muted'}`}>{formatMoney(d.pct * 1_000_000)}</div>
+                  <div className="col-span-12 md:col-span-5 text-xs md:text-sm text-muted">{d.detail}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-xs text-muted italic mt-4 max-w-2xl">
+            Architect's slice: $5–8M of fees on a $100M project, split across the firm's principals, staff, and overhead. Net to the firm partners after costs: typically 10–15% of the fee — meaning $500K–$1.2M total profit on a $100M asset they were essential to creating.
+          </p>
+        </section>
+      );
+    }
+
+    function Tab05_SoftwarePie() {
+      const data = SOFTWARE_PIE;
+      return (
+        <section className="bg-cream-sunken border-y border-line py-16 md:py-20">
+          <div className="max-w-5xl mx-auto px-6">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">A $100,000,000 product</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Different math. Different floor.</h2>
+            <p className="text-muted max-w-2xl mb-8">
+              On the software side, the people who do the originating thinking are paid in equity, not just hours. A founding engineer at a $100M-revenue product can hold $5–20M+ in equity. A senior engineer at a public tech company can hold $300K–$1M+ in annual stock. The work creates compounding value, and they get to capture some of it.
+            </p>
+
+            <div className="bg-cream-raised border border-line-faint rounded-sm p-6 md:p-8">
+              <div className="flex h-16 rounded-sm overflow-hidden border border-line-faint mb-6">
+                {data.map((d, i) => (
+                  <div key={i} className="flex items-center justify-center text-xs font-semibold text-[var(--bg)] num"
+                       style={{ width: `${d.pct}%`, background: d.highlight ? 'var(--soft)' : (i === 0 ? 'var(--text)' : i === 2 ? 'var(--text-muted)' : 'var(--text-faint)') }}>
+                    {d.pct}%
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-3">
+                {data.map((d, i) => (
+                  <div key={i} className={`grid grid-cols-12 gap-3 py-3 border-b border-line-faint last:border-0 ${d.highlight ? 'bg-[var(--bg)] -mx-2 px-2 rounded-sm' : ''}`}>
+                    <div className={`col-span-4 md:col-span-3 serif font-semibold ${d.highlight ? 'text-accent' : ''}`}>{d.who}</div>
+                    <div className={`col-span-2 num font-semibold serif text-lg ${d.highlight ? 'text-accent' : ''}`}>{d.pct}%</div>
+                    <div className={`col-span-2 num text-sm ${d.highlight ? 'text-accent' : 'text-muted'}`}>{formatMoney(d.pct * 1_000_000)}</div>
+                    <div className="col-span-12 md:col-span-5 text-xs md:text-sm text-muted">{d.detail}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6 mt-10">
+              <div className="bg-cream-raised border border-line-faint p-5 rounded-sm">
+                <div className="text-xs uppercase tracking-wider text-muted mb-2">architect's take</div>
+                <div className="serif text-3xl font-semibold num">~6%</div>
+                <p className="text-sm text-muted mt-2">Flat fee. No equity. No royalty. No recurring license. The asset appreciates; the architect does not participate.</p>
+              </div>
+              <div className="bg-cream-raised border border-line-faint p-5 rounded-sm">
+                <div className="text-xs uppercase tracking-wider text-muted mb-2">engineering team's take</div>
+                <div className="serif text-3xl font-semibold num text-accent">~25%</div>
+                <p className="text-sm text-muted mt-2">Base salary plus equity that compounds with the product. The asset appreciates; the team participates.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab05_Appreciation() {
+      // $100M building bought at completion. Architect's $6M fee at year 0.
+      // Owner's slice: $12M initial equity, plus the asset itself appreciates.
+      // Use NCREIF historical: ~6% annual real appreciation + income.
+      // After 30 years at 6%: $100M building → $574M
+      // Owner's wealth from this asset (initial $12M slice + appreciation): substantial.
+      // Architect: still $6M, paid in 1995, eaten by 30 years of inflation.
+      const years = 30;
+      const points = [];
+      for (let y = 0; y <= years; y++) {
+        const buildingValue = 100 * Math.pow(1.06, y);  // $M
+        const archFee = 6;                                // flat, never grows
+        const archFeeReal = 6 / Math.pow(1.025, y);      // CPI-adjusted ~2.5%
+        points.push({ y, buildingValue, archFee, archFeeReal });
+      }
+
+      const w = 700, h = 360, pad = { l: 60, r: 30, t: 30, b: 40 };
+      const yMax = 600;
+      const xScale = (yr) => pad.l + (yr / years) * (w - pad.l - pad.r);
+      const yScale = (v) => h - pad.b - (v / yMax) * (h - pad.t - pad.b);
+
+      const buildingPath = 'M' + points.map(p => `${xScale(p.y)},${yScale(p.buildingValue)}`).join(' L');
+      const archPath = 'M' + points.map(p => `${xScale(p.y)},${yScale(p.archFee)}`).join(' L');
+
+      const finalBuilding = points[points.length-1].buildingValue;
+      const finalArchReal = points[points.length-1].archFeeReal;
+
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-8">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">The asset over time</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">The building keeps appreciating. The architect's check was already cashed.</h2>
+            <p className="text-muted max-w-2xl">
+              The building doesn't stop being valuable on opening day. Commercial real estate has returned about <span className="num text-main">9%</span> annually over the past 30 years, including ~6% appreciation. A $100M building at completion is worth roughly <span className="num text-main">$575M</span> after 30 years at that rate. The owner captures every dollar of that. The architect was paid $6M in year zero — and inflation alone reduced that fee to about <span className="num text-main">${finalArchReal.toFixed(1)}M</span> in real dollars by year 30.
+            </p>
+          </div>
+
+          <div className="bg-cream-raised border border-line-faint rounded-sm p-4 md:p-6">
+            <svg viewBox={`0 0 ${w} ${h}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+              {/* Y-grid */}
+              {[0, 100, 200, 300, 400, 500, 600].map(t => (
+                <g key={t}>
+                  <line x1={pad.l} x2={w - pad.r} y1={yScale(t)} y2={yScale(t)} stroke="var(--line-faint)" strokeWidth="1"/>
+                  <text x={pad.l - 8} y={yScale(t) + 4} fontSize="10" fill="var(--text-muted)" textAnchor="end" className="num">${t}M</text>
+                </g>
+              ))}
+              {/* X ticks */}
+              {[0, 5, 10, 15, 20, 25, 30].map(t => (
+                <text key={t} x={xScale(t)} y={h - pad.b + 18} fontSize="10" fill="var(--text-muted)" textAnchor="middle" className="num">yr {t}</text>
+              ))}
+
+              {/* Building value path - filled area */}
+              <path d={`${buildingPath} L ${xScale(years)},${yScale(0)} L ${xScale(0)},${yScale(0)} Z`} fill="var(--accent)" opacity="0.12"/>
+              <path d={buildingPath} fill="none" stroke="var(--accent)" strokeWidth="2.5" className="draw-in"/>
+
+              {/* Architect fee line - flat at $6M */}
+              <path d={archPath} fill="none" stroke="var(--arch)" strokeWidth="2.5" className="draw-in" style={{ animationDelay: '0.3s' }}/>
+
+              {/* Endpoints */}
+              <g>
+                <circle cx={xScale(years)} cy={yScale(finalBuilding)} r="4" fill="var(--accent)"/>
+                <text x={xScale(years) - 8} y={yScale(finalBuilding) - 8} fontSize="11" fill="var(--accent)" fontWeight="600" textAnchor="end" className="num">building: $574M</text>
+              </g>
+              <g>
+                <circle cx={xScale(years)} cy={yScale(6)} r="4" fill="var(--arch)"/>
+                <text x={xScale(years) - 8} y={yScale(6) - 8} fontSize="11" fill="var(--arch)" fontWeight="600" textAnchor="end" className="num">architect fee: $6M (flat)</text>
+              </g>
+            </svg>
+
+            <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-line-faint">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-3 h-3 rounded-full" style={{ background: 'var(--accent)' }}></span>
+                  <span className="text-xs uppercase tracking-wider text-muted">building value, year 30</span>
+                </div>
+                <div className="serif text-2xl font-semibold num">${Math.round(finalBuilding)}M</div>
+                <div className="text-xs text-muted">at 6% annual appreciation, owner captures all</div>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-3 h-3 rounded-full" style={{ background: 'var(--arch)' }}></span>
+                  <span className="text-xs uppercase tracking-wider text-muted">architect's take, year 30</span>
+                </div>
+                <div className="serif text-2xl font-semibold num">$6M</div>
+                <div className="text-xs text-muted">paid at completion. Never appreciates. Inflation eats it.</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 max-w-2xl text-muted leading-relaxed space-y-3">
+            <p>
+              No royalty. No equity. No back-end. No "the design pulled in 30% more foot traffic, here's a cut for five years." The architect originated the asset. The asset compounds. The architect does not.
+            </p>
+            <p>
+              Compare to almost any other field that creates a long-lived asset. Songwriters get royalties on plays for 70 years after death. Patent holders license their work. Authors earn royalties per copy. Software engineers get equity that vests with company growth. Even car designers, in some cases, earn brand-tied bonuses on lifetime sales.
+            </p>
+          </div>
+
+          <p className="text-xs text-muted italic mt-4 max-w-2xl">
+            NCREIF Property Index 30-year average: ~9% annualized total return on commercial real estate, ~6% appreciation component. Real architect fee assumes ~2.5% annual CPI inflation. Numbers illustrative on a representative $100M building.
+          </p>
+        </section>
+      );
+    }
+
+    function Tab05_BespokeVsScale() {
+      const examples = [
+        { what: 'Toyota Camry',         who: 'Calty Design / Toyota industrial design team', units: '~10 million units sold lifetime',         designOnce: 'One design generation, ~5–7 years',   captures: 'Designers paid as employees; Toyota captures lifetime sales' },
+        { what: 'iPhone',               who: 'Jony Ive era / current Apple ID team',         units: '~250 million units per generation',     designOnce: 'One industrial design, refreshed annually', captures: 'Apple captures recurring revenue across generations' },
+        { what: 'Tesla Model 3',        who: 'Tesla design team',                            units: '~2 million units shipped',              designOnce: 'One platform, multiple variants',     captures: 'Same design, scaled across global production' },
+        { what: 'Notion (software)',    who: 'Notion product / engineering team',            units: 'Used by ~100M+ accounts',               designOnce: 'One product, infinite copies',        captures: 'Engineering team holds equity; product compounds in value' },
+        { what: 'A building',          who: 'Architect',                                     units: '1',                                      designOnce: 'Bespoke. Each one starts from blank',  captures: 'Architect paid once, at completion. Building cannot be copied.', highlight: true }
+      ];
+      return (
+        <section className="bg-cream-sunken border-y border-line py-16 md:py-20">
+          <div className="max-w-5xl mx-auto px-6">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">Design once, sell many. Or design once, sell one.</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Every other design profession scales. Architecture refuses to.</h2>
+            <p className="text-muted max-w-2xl mb-8">
+              In every other design discipline, you design once and the work multiplies. Toyota's industrial designers shape one Camry; Toyota sells ten million. Apple's design team shapes one iPhone; Apple ships 250 million per generation. A software engineer writes one app; the copies are free. The economics work because the design effort is amortized across millions of units. The unit cost of the design approaches zero.
+            </p>
+            <p className="text-muted max-w-2xl mb-8">
+              Architecture is the opposite. One building. Every time. Bespoke from foundation to finishes. Some details get recycled (a curtain wall detail, a stair section, a corner condition), but the project as a whole is always a one-off. The design effort is amortized across exactly one unit.
+            </p>
+
+            <div className="bg-cream-raised border border-line-faint rounded-sm overflow-hidden">
+              <div className="grid grid-cols-12 gap-3 px-5 py-3 text-xs uppercase tracking-wider text-muted bg-[var(--bg)] border-b border-line-faint">
+                <div className="col-span-12 md:col-span-3">design</div>
+                <div className="col-span-12 md:col-span-3">units shipped</div>
+                <div className="col-span-12 md:col-span-3">design effort</div>
+                <div className="col-span-12 md:col-span-3">value capture</div>
+              </div>
+              {examples.map((e, i) => (
+                <div key={i} className={`grid grid-cols-12 gap-3 px-5 py-4 border-b border-line-faint last:border-0 ${e.highlight ? 'bg-[var(--bg)]' : ''}`}>
+                  <div className={`col-span-12 md:col-span-3 ${e.highlight ? 'text-accent' : ''}`}>
+                    <div className="serif font-semibold text-sm md:text-base">{e.what}</div>
+                    <div className="text-xs text-muted mt-1">{e.who}</div>
+                  </div>
+                  <div className={`col-span-12 md:col-span-3 num text-sm md:text-base ${e.highlight ? 'text-accent font-semibold' : 'text-main'}`}>{e.units}</div>
+                  <div className="col-span-12 md:col-span-3 text-xs md:text-sm text-muted">{e.designOnce}</div>
+                  <div className="col-span-12 md:col-span-3 text-xs md:text-sm text-muted">{e.captures}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 max-w-2xl text-muted leading-relaxed">
+              <p>
+                A Toyota industrial designer doesn't earn lifetime royalties on every Camry sold either. But the company they work for captures the upside, and the company shares it through stable employment, profit-sharing, and a working economy of scale. The architect's firm has none of that. One project = one fee = end of story.
+              </p>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab05_Sears() {
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-8">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">The path not taken</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Architecture had a scale model. The profession rejected it.</h2>
+            <p className="text-muted max-w-2xl">
+              Between 1908 and 1942, Sears, Roebuck and Co. sold an estimated <span className="num text-main">75,000–100,000 mail-order kit homes</span> across <span className="num text-main">370+ designs</span>. A customer could open a catalog, pick a design, and a railcar of pre-cut lumber would arrive at their lot. It was the closest thing the profession ever came to a real product economy: a single design, sold thousands of times, generating recurring revenue. And it worked.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-4 mb-10">
+            <div className="bg-cream-raised border border-line-faint p-5 rounded-sm">
+              <div className="text-xs uppercase tracking-wider text-muted mb-2">designs offered</div>
+              <div className="serif text-3xl font-semibold num">370+</div>
+              <p className="text-sm text-muted mt-2">Across 34 years of catalogs. Bungalows, foursquares, colonials, Cape Cods.</p>
+            </div>
+            <div className="bg-cream-raised border border-line-faint p-5 rounded-sm">
+              <div className="text-xs uppercase tracking-wider text-muted mb-2">homes sold</div>
+              <div className="serif text-3xl font-semibold num">~75,000+</div>
+              <p className="text-sm text-muted mt-2">Conservative estimate; Sears claimed 100,000+. Still standing in neighborhoods nationwide.</p>
+            </div>
+            <div className="bg-cream-raised border border-line-faint p-5 rounded-sm">
+              <div className="text-xs uppercase tracking-wider text-muted mb-2">peak revenue (1929)</div>
+              <div className="serif text-3xl font-semibold num">$12M</div>
+              <p className="text-sm text-muted mt-2">~$220M in 2025 dollars. ~10,000 homes sold in a single year. From one catalog division.</p>
+            </div>
+          </div>
+
+          <div className="bg-cream-raised border border-line-faint rounded-sm p-6 md:p-8 mb-8">
+            <div className="grid md:grid-cols-2 gap-8">
+              <div>
+                <div className="text-xs uppercase tracking-wider text-muted mb-3">the model worked</div>
+                <ul className="text-sm text-muted space-y-2">
+                  <li>— One design effort, sold thousands of times</li>
+                  <li>— Standardized parts cut construction cost ~30–40%</li>
+                  <li>— Mortgage offered through Sears (until 1934)</li>
+                  <li>— Brought home ownership to working-class buyers</li>
+                  <li>— Created an actual economy of scale in residential design</li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wider text-accent mb-3">the AIA's response</div>
+                <ul className="text-sm text-muted space-y-2">
+                  <li>— Sears employed in-house designers but called them "experts," not architects</li>
+                  <li>— "Real" architects took commissions from wealthy clients</li>
+                  <li>— Pattern books and stock plans were considered a step down from bespoke practice</li>
+                  <li>— The Beaux-Arts inheritance: Hunt designed Vanderbilt mansions, not catalog homes</li>
+                  <li>— Pattern-book architects were quietly excluded from professional respectability</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-cream-raised border-2 border-[var(--accent)] p-6 md:p-8 rounded-sm">
+            <div className="text-xs uppercase tracking-wider text-accent mb-3">the inherited assumption</div>
+            <p className="serif text-xl md:text-2xl font-semibold leading-snug mb-4">
+              A "real" architect designs one building for one client. Anything else is beneath the profession.
+            </p>
+            <p className="text-sm text-muted leading-relaxed">
+              This is the Beaux-Arts inheritance. Richard Morris Hunt — the same architect who established the 5% fee precedent in 1865 — also designed the Vanderbilt mansions, Biltmore, and the Breakers. The cultural template for an "architect" is the gentleman who takes the wealthy commission. That template makes scale impossible. You cannot productize what you've defined as inherently bespoke. The profession internalized this so deeply that even today, "stock plan" and "pattern book" are mild slurs in architectural circles.
+            </p>
+            <p className="text-sm text-muted leading-relaxed mt-3">
+              The result: every other design discipline learned to design once and sell many. Architecture kept the gentleman's commission. The pricing reflects that.
+            </p>
+          </div>
+
+          <p className="text-xs text-muted italic mt-6 max-w-2xl">
+            Sources: Sears Modern Homes (Wikipedia, archival records); Rosemary Thornton, "The Houses That Sears Built"; Avery Library Architectural Trade Catalogs at Columbia. Sears in-house designers were credited as "experts" rather than architects in deliberate distinction from the AIA-aligned profession.
+          </p>
+        </section>
+      );
+    }
+
+    function Tab05_MarginStack() {
+      // Two stacks. First: gross-to-gross (revenue minus direct delivery costs).
+      // Second: net-to-net (revenue minus everything: delivery, sales, R&D, overhead).
+      // Both use the same metric for both industries. Both end at zero for the architect's royalty stream.
+      const grossTiers = [
+        { label: 'SaaS, top tier (Datadog, Atlassian)',  pct: 85, dollars: 850, note: 'For every $1,000 of revenue, $850 stays with the company before any operating costs.' },
+        { label: 'SaaS, median (public companies)',       pct: 75, dollars: 750, note: 'Median public SaaS. $750 of every $1,000 is available for sales, R&D, and profit.' },
+        { label: 'SaaS, infrastructure (Snowflake)',      pct: 70, dollars: 700, note: 'Heavier compute costs but still highly scalable. $700 of every $1,000.' },
+        { label: 'Architecture firm, gross (typical)',    pct: 33, dollars: 330, note: 'Architecture firm gross margin: revenue minus direct staff time on projects. About a third of every $1,000 covers everything else: rent, software, business development, leadership, profit.' }
+      ];
+      const netTiers = [
+        { label: 'SaaS, top tier (after operating costs)', pct: 30, dollars: 300, note: 'Top public SaaS net margin runs ~25–35% after sales, R&D, and overhead. About $300 of every $1,000 is true profit.' },
+        { label: 'SaaS, median (after operating costs)',   pct: 15, dollars: 150, note: 'Median SaaS company runs ~10–20% net. Many growth-stage SaaS run at break-even or loss while reinvesting.' },
+        { label: 'Architecture firm, large',                pct: 14, dollars: 140, note: 'AIA 2024 Firm Survey: large firms (>$5M billings) average 14% net pre-tax pre-bonus. $140 of every $1,000 of revenue.', highlight: true },
+        { label: 'Architecture firm, average',              pct: 12, dollars: 120, note: 'AIA 2024: profession-wide net margin. About $120 of every $1,000 of revenue. The architecture firm and the SaaS company are now in the same conversation. Sort of.', highlight: true },
+        { label: 'Architecture firm, small',                pct: 9,  dollars: 90,  note: 'Firms under $250K billings average just 9%. About $90 of every $1,000 stays with the firm before tax.', highlight: true },
+        { label: "Architect's slice of total project",      pct: 6,  dollars: 60,  note: 'Now zoom out. Of every $1,000 the owner spent on the building, only $60 went to the architect at all. The 12% net of that $60 is the firm-level take.', highlight: true },
+        { label: "Architect's recurring revenue, year 2+",  pct: 0,  dollars: 0,   note: 'And of every $1,000 the building generates over its 30-year life, the architect captures $0.', highlight: true }
+      ];
+      const maxPct = 85;
+
+      const renderTier = (t, i) => {
+        const widthPct = t.pct === 0 ? 1.5 : (t.pct / maxPct) * 100;
+        const color = t.highlight ? 'var(--arch)' : 'var(--accent)';
+        return (
+          <div key={i}>
+            <div className="flex justify-between items-baseline gap-3 mb-1">
+              <span className={`text-xs md:text-sm font-medium`} style={{ color: t.highlight ? 'var(--arch)' : undefined }}>{t.label}</span>
+              <div className="flex items-baseline gap-3 flex-shrink-0">
+                <span className="num text-xs text-muted">${t.dollars} / $1,000</span>
+                <span className={`num serif text-lg md:text-xl font-semibold`} style={{ color: t.highlight ? 'var(--arch)' : 'var(--text)' }}>{t.pct}%</span>
+              </div>
+            </div>
+            <div className="h-5 bg-[var(--line-faint)] rounded-sm overflow-hidden">
+              <div className="h-full transition-all duration-1000 ease-out" style={{ width: `${widthPct}%`, background: color }}></div>
+            </div>
+            <p className="text-xs text-muted mt-2 leading-snug max-w-2xl">{t.note}</p>
+          </div>
+        );
+      };
+
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-10">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">The margin gradient</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">From 85% to zero. Apples to apples, then apples to apples again.</h2>
+            <p className="text-muted max-w-2xl">
+              The honest comparison takes two passes. First gross-to-gross: revenue minus the direct cost of delivery. Then net-to-net: revenue minus everything, including sales, marketing, R&D, and overhead. Architecture loses on both passes.
+            </p>
+            <p className="text-muted max-w-2xl mt-3">
+              For each tier, the bar shows the percentage. The dollar figure shows what stays with the company for every $1,000 of revenue. Zero ambiguity. Zero spin.
+            </p>
+          </div>
+
+          {/* GROSS MARGIN STACK */}
+          <div className="bg-cream-raised border border-line-faint rounded-sm p-4 md:p-6 mb-8">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-1">Gross margin</div>
+            <p className="text-sm text-muted mb-5 max-w-2xl">Revenue minus direct delivery costs. For SaaS that's hosting, support, and bandwidth. For architecture firms it's the staff time billed directly to projects.</p>
+            <div className="space-y-5">
+              {grossTiers.map(renderTier)}
+            </div>
+          </div>
+
+          {/* NET MARGIN STACK */}
+          <div className="bg-cream-raised border-2 rounded-sm p-4 md:p-6" style={{ borderColor: 'var(--arch)' }}>
+            <div className="text-xs uppercase tracking-[0.2em] mb-1" style={{ color: 'var(--arch)' }}>Net margin (and project share)</div>
+            <p className="text-sm text-muted mb-5 max-w-2xl">Revenue minus everything: delivery, sales, marketing, R&D, rent, leadership, business development. Then we zoom out to the architect's slice of the entire $100M project, and finally to the architect's recurring revenue from the completed building.</p>
+            <div className="space-y-5">
+              {netTiers.map(renderTier)}
+            </div>
+          </div>
+
+          <div className="mt-10 max-w-2xl text-muted leading-relaxed space-y-3">
+            <p>
+              Two passes, same answer. Architecture firms are not just "less profitable than software" — they're operating at a different scale of value capture entirely. A median SaaS firm at 75% gross is keeping more than twice what an architecture firm keeps before its own staff goes home for the night.
+            </p>
+            <p>
+              And the gradient ends at zero. Every business above the architecture line earns recurring revenue. Architecture firms do not. Whatever margin a firm captures, it has to capture it once, on the day the project closes out, on a fee that has been compressed every year since 1972.
+            </p>
+          </div>
+
+          <p className="text-xs text-muted italic mt-6 max-w-2xl">
+            Sources: AIA 2024 Firm Survey and ABI Feb 2025 (architecture firm margins); Software Equity Group SaaS M&amp;A Report and public 10-Ks (SaaS gross and net margins). SaaS net margins vary by stage and growth rate; figures shown are typical for mature, profitable public SaaS companies. Architecture gross margin estimate (~33%) reflects typical revenue-minus-direct-staff economics; AIA does not publish gross margin in its standard format.
+          </p>
+        </section>
+      );
+    }
+
+    function Tab05_BackEnds() {
+      const fields = [
+        { creator: 'Songwriter',          backend: 'Mechanical, performance, and sync royalties for life + 70 years',                  example: '"American Pie" still earns Don McLean royalties on ~500 plays/day worldwide. "All I Want for Christmas" earns Mariah Carey ~$2–4M/year, 30+ years on.' },
+        { creator: 'Film director / writer', backend: 'Residuals on every broadcast, streaming, and re-release. Profit participation on hits.', example: 'Theme songs (Cheers, Friends) generate income for decades. WGA/DGA-negotiated residuals on every play.' },
+        { creator: 'Author',              backend: 'Royalty per copy sold, in perpetuity, life + 70 years',                              example: 'Stephen King\'s estate will earn royalties on his catalog for 70 years past his death. Books print, ebooks sell, audio licenses renew.' },
+        { creator: 'Software engineer',   backend: 'Equity that vests with company growth. Recurring revenue from product.',             example: 'Founding engineer at $100M ARR product can hold $5–20M+ in equity. Senior at FAANG: $300K–$1M+ in annual stock.' },
+        { creator: 'Patent holder',        backend: 'Licensing fees for 20-year patent term. Litigation rights.',                        example: 'IBM earns ~$1B/year in patent licensing. Pharmaceutical patents drive entire valuations.' },
+        { creator: 'Industrial designer', backend: 'Sometimes royalty deals; more often, employee equity at the parent company',         example: 'Apple ID team holds Apple equity. Tesla design team holds Tesla equity. Companies capture and share upside.' },
+        { creator: 'Fashion designer',     backend: 'Brand royalties, licensing of name and pattern, secondary-market resale',           example: 'Yves Saint Laurent estate earns royalties on every "YSL" license. Off-White, Supreme — brand IP is monetized in perpetuity.' },
+        { creator: 'Architect',            backend: 'NONE. Single fee at completion. Owner gets perpetual license, included in fee.',  example: 'AIA B101 contract grants the owner a free license to "construct, use, maintain, alter, and add to" the project. Architect retains theoretical copyright. Almost never used.', highlight: true }
+      ];
+      return (
+        <section className="bg-cream-sunken border-y border-line py-16 md:py-20">
+          <div className="max-w-5xl mx-auto px-6">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">The back-end question</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Every other creative discipline gets paid after the work is done. Architecture does not.</h2>
+            <p className="text-muted max-w-2xl mb-8">
+              In music, film, publishing, software, patents, and even fashion, the entire economic model assumes the work generates revenue <em>after</em> the creation event. The fee at completion is the floor, not the ceiling. The back-end is where the money is.
+            </p>
+            <p className="text-muted max-w-2xl mb-8">
+              Architecture is the only major creative profession that built no back-end. The AIA's standard B101 contract grants the owner a free, perpetual license to "construct, use, maintain, alter, and add to" the project. The architect retains theoretical copyright on the drawings. But there is no collection infrastructure, no normalized licensing practice, no royalty mechanism, no industry expectation. The right exists. The revenue does not.
+            </p>
+
+            <div className="bg-cream-raised border border-line-faint rounded-sm overflow-hidden">
+              <div className="grid grid-cols-12 gap-3 px-5 py-3 text-xs uppercase tracking-wider text-muted bg-[var(--bg)] border-b border-line-faint">
+                <div className="col-span-12 md:col-span-2">creator</div>
+                <div className="col-span-12 md:col-span-4">back-end mechanism</div>
+                <div className="col-span-12 md:col-span-6">example</div>
+              </div>
+              {fields.map((f, i) => (
+                <div key={i} className={`grid grid-cols-12 gap-3 px-5 py-4 border-b border-line-faint last:border-0 ${f.highlight ? 'bg-[var(--bg)]' : ''}`}>
+                  <div className={`col-span-12 md:col-span-2 serif font-semibold text-sm md:text-base ${f.highlight ? 'text-accent' : ''}`}>{f.creator}</div>
+                  <div className={`col-span-12 md:col-span-4 text-xs md:text-sm ${f.highlight ? 'text-accent font-semibold' : 'text-muted'}`}>{f.backend}</div>
+                  <div className="col-span-12 md:col-span-6 text-xs md:text-sm text-muted leading-snug">{f.example}</div>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-muted italic mt-4 max-w-2xl">
+              AIA B101 §7.2 grants the architect copyright. AIA B101 §7.3 grants the owner a perpetual license — bundled into the design fee. The license fee mechanism in §7.3 only applies if the owner terminates for convenience mid-project, not on normal completion. Architects have the legal IP. They almost never collect on it.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab05_AccumulatedIP() {
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-8">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">The other accumulated value architects don't sell</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Thirty years of detail libraries. Given away on every project, free.</h2>
+            <p className="text-muted max-w-2xl">
+              A mid-sized architecture firm spends decades developing internal IP: a curtain-wall detail library, a stair-section playbook, a parking-garage typology, a healthcare patient-room standard, a sustainable-design specification template, a BIM family library, a project-management process, a quality-control checklist. None of it appears on any invoice. None of it is licensed externally. None of it is sold. It gets handed to the next client, embedded in the next project, billed at the same hourly rate as a junior drafter starting from a blank screen.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-cream-raised border border-line-faint p-5 rounded-sm">
+              <div className="text-xs uppercase tracking-wider text-muted mb-3">software company approach</div>
+              <ul className="text-sm text-muted space-y-2">
+                <li>— Codebase is the asset</li>
+                <li>— Sold or licensed 100,000+ times</li>
+                <li>— Each new customer pays for access to accumulated work</li>
+                <li>— Components, libraries, frameworks all licensed separately</li>
+                <li>— Internal tooling is sometimes spun out as its own product</li>
+                <li>— Documentation, processes, methodologies become consulting revenue</li>
+              </ul>
+              <p className="text-xs text-muted italic mt-3">Every line of accumulated work has a price.</p>
+            </div>
+            <div className="bg-cream-raised border-2 border-[var(--accent)] p-5 rounded-sm">
+              <div className="text-xs uppercase tracking-wider text-accent mb-3">architecture firm approach</div>
+              <ul className="text-sm space-y-2" style={{ color: 'var(--text)' }}>
+                <li>— 30 years of detail libraries: free with project</li>
+                <li>— Specifications and guide drawings: free with project</li>
+                <li>— Construction administration playbook: free with project</li>
+                <li>— BIM family library: free with project</li>
+                <li>— Quality-control processes: free with project</li>
+                <li>— Hard-won knowledge of code, sequence, sub-trade coordination: free with project</li>
+              </ul>
+              <p className="text-xs italic mt-3" style={{ color: 'var(--accent)' }}>Every fee is calculated as if the firm started yesterday.</p>
+            </div>
+          </div>
+
+          <div className="mt-8 max-w-2xl text-muted leading-relaxed space-y-3">
+            <p>
+              The 1972 consent decree didn't ban any of this. Architects can absolutely license their detail libraries. They can sell stock specifications. They can package their methodologies. The barrier is cultural, not legal.
+            </p>
+            <p>
+              The Beaux-Arts inheritance again: a real architect builds bespoke, every time, for every client. To package and license your accumulated work would be to admit that some part of your service is — what's the word — <em>repeatable</em>. And in the cultural code of the profession, repeatable is what the engineers and contractors do. Architects are artists. Artists do not productize.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab05_OneOffSong() {
+      return (
+        <section className="bg-cream-sunken border-y border-line py-16 md:py-20">
+          <div className="max-w-4xl mx-auto px-6">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">A thought experiment</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-6 max-w-2xl">Imagine a $100 million song.</h2>
+
+            <div className="space-y-5 text-lg leading-relaxed text-muted max-w-2xl">
+              <p>
+                A film studio wants a custom song written for the climax of their next feature. They want exclusivity. They want the song to never appear anywhere else — no streaming, no cover versions, no sheet music sales, no secondary licensing. They want to own the rights forever, free and clear, embedded in the project fee.
+              </p>
+              <p>
+                The songwriter does the math out loud. <em>"OK. So if this were 'All I Want for Christmas Is You,' it would earn $80 million in royalties over 30 years. Mariah's catalog is now valued at $60–100 million as an asset. If you're asking me to forfeit all of that — every stream, every cover, every wedding, every TV placement — for one performance in your movie, you need to pay me what the song would have earned across all those uses. Plus a premium for taking the risk that I'm the one writing 'American Pie' and you bought it for one play. So my fee is $100 million."</em>
+              </p>
+              <p>
+                The studio refuses, of course. They could license <em>any</em> existing song for a few hundred thousand dollars in sync fees. They want a custom one because they want something that fits perfectly. Fine. The negotiation continues, but it starts from an honest accounting of the foreclosed alternative uses. The song has value <em>across time and across copies</em>. Asking it to live as a one-off requires pricing in everything you're giving up.
+              </p>
+            </div>
+
+            <div className="my-12 border-t border-line-faint"></div>
+
+            <div className="space-y-5 text-lg leading-relaxed text-muted max-w-2xl">
+              <p>
+                Now run the same thought experiment for a building.
+              </p>
+              <p>
+                A developer wants a custom $100 million building. They want exclusivity — this design will exist only on this lot, in this configuration. They want a perpetual license to the drawings — to construct, maintain, alter, add to, and (in practice if not in contract) reuse. They want the architect to forfeit all secondary uses, all royalties, all reissues, all licensing rights. Just like the studio with the song.
+              </p>
+              <p>
+                The architect does <em>not</em> do the math out loud. The architect quotes <span className="num text-main">5–8%</span> of construction cost — what the AIA fee schedule recommended in 1908, what the profession internalized as the standard, what the consent decree of 1972 prohibited the AIA from publishing but never prohibited the profession from breaking. <span className="num text-main">$5–8 million</span>. The architect treats the foreclosed alternative uses as if they had no value, because there is no industry-standard mechanism for valuing them.
+              </p>
+              <p className="serif text-xl md:text-2xl font-semibold" style={{ color: 'var(--text)' }}>
+                And then watches the building sell for $574 million in 30 years to someone who never paid the architect a dollar of that appreciation.
+              </p>
+              <p>
+                The thought experiment isn't really about songs. It's about asking why, when every other creative discipline starts the negotiation by enumerating what's being foreclosed, architecture starts the negotiation at "5% of construction cost, take it or leave it."
+              </p>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab05_Thesis() {
+      return (
+        <section className="max-w-4xl mx-auto px-6 py-20 md:py-28">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted mb-4">The thesis</div>
+          <div className="space-y-8 serif serif-text text-2xl md:text-4xl font-medium leading-[1.2] tracking-tight">
+            <p>The architect was paid as a deliverable producer. Drawings, specs, hours.</p>
+            <p className="text-faint">Once the unit of value is the deliverable, you compete on price. Once you compete on price, you race to the bottom.</p>
+            <p>Songwriters get <span className="text-accent">royalties</span>. Authors get <span className="text-accent">copies</span>. Engineers get <span className="text-accent">equity</span>. Patents get <span className="text-accent">licenses</span>. Songs get sung; books get read; software gets used; patents get cited. Every other creative profession built a back-end. Architects built none.</p>
+            <p className="text-faint">Architecture priced itself as <span className="text-main">paper</span>, kept itself <span className="text-main">bespoke</span>, sold no <span className="text-main">copies</span>, took no <span className="text-main">royalties</span>, licensed no <span className="text-main">libraries</span>, and got paid <span className="text-main">once</span>. And then watched the building, the asset, and the value compound for everyone except the person who designed it.</p>
+            <p>The 1972 consent decree didn't ban any of this. It only banned coordinated pricing. The rest was a choice.</p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab05({ setActiveTab }) {
+      return (
+        <>
+          <Tab05_Hero/>
+          <Tab05_BuildingPie/>
+          <Tab05_SoftwarePie/>
+          <Tab05_Appreciation/>
+          <Tab05_BespokeVsScale/>
+          <Tab05_Sears/>
+          <Tab05_MarginStack/>
+          <Tab05_BackEnds/>
+          <Tab05_AccumulatedIP/>
+          <Tab05_OneOffSong/>
+          <Tab05_Thesis/>
+          <section className="max-w-4xl mx-auto px-6 py-12 md:py-16 border-t border-line-faint">
+            <p className="serif serif-text text-2xl md:text-3xl leading-snug font-medium mb-6">
+              Next: what if it had gone differently?
+            </p>
+            <button onClick={() => setActiveTab(6)} className="text-sm uppercase tracking-wider text-accent hover:text-main transition border-b border-accent pb-1">Tab 06 · What If →</button>
+          </section>
+        </>
+      );
+    }
+
+
+    // ============================================================
+    // TAB 06 — THE COUNTERFACTUAL
+    // ============================================================
+
+    function Tab06_Hero() {
+      return (
+        <section className="max-w-4xl mx-auto px-6 pt-16 md:pt-24 pb-10">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted mb-6">Tab 06 · What If</div>
+          <h1 className="serif serif-display text-5xl md:text-7xl lg:text-8xl font-semibold leading-[1.02] tracking-tight mb-10">
+            <span className="text-faint">What if the AIA reframed in</span> 1955?
+          </h1>
+          <div className="space-y-5 text-lg md:text-xl text-muted leading-relaxed max-w-2xl">
+            <p>
+              In the 1950s and early 60s, a window existed. Antitrust enforcement against the learned professions had not yet ramped up. The AMA and the ABA were already positioning their members as expert advisors — judgment, not paperwork. The AIA was still defending the fee schedule.
+            </p>
+            <p>
+              The thought experiment: the AIA spends 1955–1970 reframing the architect as an expert advisor whose value is judgment, not drawings. The fee schedule still goes when the DOJ comes in 1972. But the framing survives. The profession keeps its standing. Pricing follows.
+            </p>
+            <p>
+              Run the numbers on that timeline.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab06_Counterfactual() {
+      // Real (inflation-adjusted) compensation index, actual vs counterfactual
+      const data = [
+        { year: 1970, actual: 100, counterfactual: 100 },
+        { year: 1980, actual: 102, counterfactual: 130 },
+        { year: 1990, actual: 105, counterfactual: 165 },
+        { year: 2000, actual: 110, counterfactual: 200 },
+        { year: 2010, actual: 108, counterfactual: 235 },
+        { year: 2020, actual: 112, counterfactual: 270 },
+        { year: 2025, actual: 115, counterfactual: 290 }
+      ];
+      const w = 700, h = 360, pad = { l: 50, r: 30, t: 30, b: 40 };
+      const yMax = 320;
+      const xScale = (y) => pad.l + ((y - 1970) / (2025 - 1970)) * (w - pad.l - pad.r);
+      const yScale = (v) => h - pad.b - (v / yMax) * (h - pad.t - pad.b);
+
+      function path(key) {
+        return 'M' + data.map(d => `${xScale(d.year)},${yScale(d[key])}`).join(' L');
+      }
+
+      return (
+        <section className="bg-cream-sunken border-y border-line py-16 md:py-20">
+          <div className="max-w-5xl mx-auto px-6">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">Two timelines for the same profession</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">The gap that didn't have to open.</h2>
+            <p className="text-muted max-w-2xl mb-8">
+              The dotted line is the counterfactual: the AIA reframes architects as expert advisors before the consent decree hits. The fee schedule still goes in 1972. But the cultural and economic framing survives. By 2025 the profession looks more like law than like graphic design.
+            </p>
+
+            <div className="bg-cream-raised border border-line-faint rounded-sm p-4 md:p-6">
+              <svg viewBox={`0 0 ${w} ${h}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+                {/* 1972 marker */}
+                <rect x={xScale(1971)} y={pad.t} width={xScale(1973) - xScale(1971)} height={h - pad.t - pad.b} fill="var(--accent)" opacity="0.12"/>
+                <text x={xScale(1972)} y={pad.t - 10} fontSize="11" fill="var(--accent-strong)" textAnchor="middle" fontWeight="600" className="num">1972</text>
+
+                {/* Y grid */}
+                {[100, 150, 200, 250, 300].map(t => (
+                  <g key={t}>
+                    <line x1={pad.l} x2={w - pad.r} y1={yScale(t)} y2={yScale(t)} stroke="var(--line-faint)" strokeWidth="1"/>
+                    <text x={pad.l - 8} y={yScale(t) + 4} fontSize="10" fill="var(--text-muted)" textAnchor="end" className="num">{t}</text>
+                  </g>
+                ))}
+
+                {/* X ticks */}
+                {[1970, 1980, 1990, 2000, 2010, 2020].map(t => (
+                  <text key={t} x={xScale(t)} y={h - pad.b + 18} fontSize="10" fill="var(--text-muted)" textAnchor="middle" className="num">{t}</text>
+                ))}
+
+                {/* Counterfactual path */}
+                <path d={path('counterfactual')} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeDasharray="6 4" className="draw-in" style={{ animationDelay: '0.4s' }}/>
+                {/* Actual path */}
+                <path d={path('actual')} fill="none" stroke="var(--arch)" strokeWidth="2.5" className="draw-in" style={{ animationDelay: '0.1s' }}/>
+
+                {/* End-point labels */}
+                <g>
+                  <circle cx={xScale(2025)} cy={yScale(115)} r="4" fill="var(--arch)"/>
+                  <text x={xScale(2025) - 8} y={yScale(115) + 18} fontSize="11" fill="var(--arch)" fontWeight="600" textAnchor="end">actual: 115</text>
+                </g>
+                <g>
+                  <circle cx={xScale(2025)} cy={yScale(290)} r="4" fill="var(--accent)"/>
+                  <text x={xScale(2025) - 8} y={yScale(290) - 8} fontSize="11" fill="var(--accent)" fontWeight="600" textAnchor="end">counterfactual: 290</text>
+                </g>
+              </svg>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab06_Outcomes() {
+      const rows = [
+        { metric: '20-yr licensed architect salary', actual: '$150K',           counter: '$400–500K' },
+        { metric: 'Time to license',                   actual: '13.3 years',    counter: '7–9 years (like law)' },
+        { metric: 'Mid-career attrition',              actual: '37% over 10 yr', counter: '<15%, like medicine' },
+        { metric: 'Firm structure',                    actual: 'Bureaucracies racing on fee', counter: 'Ateliers with partner-track equity' },
+        { metric: 'Building stock quality',            actual: 'Spec-builder dominant',       counter: 'Architects push back, push wins' },
+        { metric: 'Talent retention',                  actual: 'Bleeds to tech, real estate', counter: 'Profession holds its mid-career' }
+      ];
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-10">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">What the counterfactual buys</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Six things that change.</h2>
+          </div>
+
+          <div className="bg-cream-raised border border-line-faint rounded-sm overflow-hidden">
+            <div className="grid grid-cols-12 gap-3 px-5 py-3 text-xs uppercase tracking-wider text-muted bg-[var(--bg)] border-b border-line-faint">
+              <div className="col-span-12 md:col-span-5">metric</div>
+              <div className="col-span-6 md:col-span-3">actual 2026</div>
+              <div className="col-span-6 md:col-span-4 text-accent">counterfactual</div>
+            </div>
+            {rows.map((r, i) => (
+              <div key={i} className="grid grid-cols-12 gap-3 px-5 py-4 border-b border-line-faint last:border-0 items-baseline">
+                <div className="col-span-12 md:col-span-5 serif font-semibold text-sm md:text-base">{r.metric}</div>
+                <div className="col-span-6 md:col-span-3 num text-sm md:text-base text-muted">{r.actual}</div>
+                <div className="col-span-6 md:col-span-4 num text-sm md:text-base text-accent font-semibold">{r.counter}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    function Tab06_Lesson() {
+      return (
+        <section className="max-w-4xl mx-auto px-6 py-20 md:py-28">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted mb-4">The lesson</div>
+          <div className="space-y-8 serif serif-text text-2xl md:text-4xl font-medium leading-[1.2] tracking-tight">
+            <p>The 1972 consent decree didn't cause the decline. It removed the last guardrail on a profession that had already started talking about itself as a vendor.</p>
+            <p className="text-faint">The AIA tried to defend the fee schedule. They should have been defending the framing.</p>
+            <p>By the time the lawyers showed up in 1972, doctors and lawyers had already won the argument that they were experts. Architects were still arguing they were necessary.</p>
+            <p className="text-faint">Necessary is not the same as paid.</p>
+            <p>The pricing problem is downstream of the positioning problem. Always.</p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab06({ setActiveTab }) {
+      return (
+        <>
+          <Tab06_Hero/>
+          <Tab06_Counterfactual/>
+          <Tab06_Outcomes/>
+          <Tab06_Lesson/>
+          <section className="max-w-4xl mx-auto px-6 py-12 md:py-16 border-t border-line-faint">
+            <p className="serif serif-text text-2xl md:text-3xl leading-snug font-medium mb-6">
+              The same disease shows up in different costumes. Look around.
+            </p>
+            <button onClick={() => setActiveTab(7)} className="text-sm uppercase tracking-wider text-accent hover:text-main transition border-b border-accent pb-1">Tab 07 · Same Disease →</button>
+          </section>
+        </>
+      );
+    }
+
+
+    // ============================================================
+    // TAB 07 — SAME DISEASE, DIFFERENT COSTUME
+    // ============================================================
+
+    function Tab07_Hero() {
+      return (
+        <section className="max-w-4xl mx-auto px-6 pt-16 md:pt-24 pb-10">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted mb-6">Tab 07 · Same Disease, Different Costume</div>
+          <h1 className="serif serif-display text-5xl md:text-7xl lg:text-8xl font-semibold leading-[1.02] tracking-tight mb-10">
+            Architecture is the original case. <span className="text-faint">It is not the only one.</span>
+          </h1>
+          <div className="space-y-5 text-lg md:text-xl text-muted leading-relaxed max-w-2xl">
+            <p>
+              Once you can see the pattern in architecture, you start seeing it in every adjacent design profession. Graphic design. Industrial design. UX. Agency creative. Editorial. Each one priced itself as deliverables instead of judgment. Each one races on hours, mockups, rounds of revision. Each one has a culture of "passion is the price of admission."
+            </p>
+            <p>
+              The comparison to law and medicine breaks down because none of these are licensed professions in the same sense. But the pricing pathology is the same. The cultural inheritance is the same. The race to the bottom is the same.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab07_Pattern() {
+      const fields = [
+        { name: 'Graphic design',   priced: 'Per logo, per page, per round', captures: 'Almost no upside on brand value' },
+        { name: 'Industrial design', priced: 'Per project, sometimes royalty', captures: 'Some royalty deals exist; rare' },
+        { name: 'UX / product design', priced: 'Hourly, salary, sometimes equity', captures: 'Equity if in-house at startup; otherwise zero' },
+        { name: 'Agency creative',   priced: 'Hours, retainers, scope creep', captures: 'No upside on campaigns that compound brand value' },
+        { name: 'Editorial / writing', priced: 'Per word, per piece, per book', captures: 'Royalty exists but is dwindling' },
+        { name: 'Architecture',     priced: '% of construction cost, hours', captures: 'No equity in the asset they originated' }
+      ];
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-10">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">The pattern</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4 max-w-2xl">Six creative fields. One disease.</h2>
+          </div>
+
+          <div className="bg-cream-raised border border-line-faint rounded-sm overflow-hidden">
+            <div className="grid grid-cols-12 gap-3 px-5 py-3 text-xs uppercase tracking-wider text-muted bg-[var(--bg)] border-b border-line-faint">
+              <div className="col-span-4">field</div>
+              <div className="col-span-4">priced as</div>
+              <div className="col-span-4">upside captured</div>
+            </div>
+            {fields.map((f, i) => (
+              <div key={i} className={`grid grid-cols-12 gap-3 px-5 py-4 border-b border-line-faint last:border-0 items-baseline ${f.name === 'Architecture' ? 'bg-[var(--bg)]' : ''}`}>
+                <div className={`col-span-4 serif font-semibold text-sm md:text-base ${f.name === 'Architecture' ? 'text-accent' : ''}`}>{f.name}</div>
+                <div className="col-span-4 text-xs md:text-sm text-muted">{f.priced}</div>
+                <div className="col-span-4 text-xs md:text-sm text-muted">{f.captures}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 max-w-2xl text-muted leading-relaxed space-y-4">
+            <p>
+              Blair Enns has spent twenty years writing about this for the agency world. The Win Without Pitching manifesto is, structurally, the document the AIA should have published in 1965. It tells creative firms to stop competing on deliverables, to charge for judgment, to refuse to give thinking away for free.
+            </p>
+            <p>
+              The advice is the same every time: stop pricing your work as paper. Price it as the value it creates. The fields that did it (medicine, law, software) won. The fields that didn't (architecture, design, agency creative) are still arguing about whether it's even <em>polite</em> to discuss money.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab07_Closer() {
+      return (
+        <section className="bg-cream-sunken border-y border-line py-20 md:py-28">
+          <div className="max-w-4xl mx-auto px-6">
+            <div className="space-y-8 serif serif-text text-2xl md:text-4xl font-medium leading-[1.2] tracking-tight">
+              <p>The architect designs the building. The designer designs the brand. The writer writes the book. The agency builds the campaign. None of them participate in the upside they create.</p>
+              <p className="text-faint">The pattern is older than 1972 and bigger than architecture. But architecture is the cleanest case to study because it had the strongest credentialing apparatus and the weakest pricing power. Watch the gap.</p>
+              <p>If you work in any of these fields, the lesson is the same. <span className="text-accent">Do not let the work be priced as paper.</span></p>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab07({ setActiveTab }) {
+      return (
+        <>
+          <Tab07_Hero/>
+          <Tab07_Pattern/>
+          <Tab07_Closer/>
+          <section className="max-w-4xl mx-auto px-6 py-12 md:py-16 border-t border-line-faint">
+            <p className="serif serif-text text-2xl md:text-3xl leading-snug font-medium mb-6">
+              One last thing. About where this all started.
+            </p>
+            <button onClick={() => setActiveTab(8)} className="text-sm uppercase tracking-wider text-accent hover:text-main transition border-b border-accent pb-1">Tab 08 · The Inheritance →</button>
+          </section>
+        </>
+      );
+    }
+
+    // ============================================================
+    // TAB 08 — THE INHERITANCE
+    // ============================================================
+
+    function Tab08_Hero() {
+      return (
+        <section className="max-w-4xl mx-auto px-6 pt-16 md:pt-24 pb-10">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted mb-6">Tab 08 · The Inheritance</div>
+          <h1 className="serif serif-display text-5xl md:text-7xl lg:text-8xl font-semibold leading-[1.02] tracking-tight mb-10">
+            350 years <span className="text-faint">of an aristocratic guild model, still running American architecture in 2026.</span>
+          </h1>
+          <div className="space-y-5 text-lg md:text-xl text-muted leading-relaxed max-w-2xl">
+            <p>
+              The argument up to this point has been mostly economic: fees, margins, royalties, scale. But there is a deeper layer underneath all of it, and the deeper layer is older than the AIA, older than the United States, older than any of the people in this conversation.
+            </p>
+            <p>
+              The business model architecture is stuck inside isn't an accident. It was inherited — directly, traceably, generation by generation — from a French royal court in 1671. And it carries with it a cultural code that, viewed honestly, is naive at best, and at worst classist, elitist, and exclusionary in ways the École's own students named explicitly in 1968.
+            </p>
+            <p>
+              This is the part nobody wants to talk about because it implicates everyone, including the architects themselves. So let's talk about it.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab08_Timeline() {
+      const events = [
+        { year: '1648', label: 'Académie Royale de Peinture et de Sculpture founded', body: 'Cardinal Mazarin establishes the Royal Academy of Painting and Sculpture in Paris. Its mission: produce art and architecture befitting Louis XIV. Royal patronage, royal commissions, royal aesthetic.' },
+        { year: '1671', label: 'Académie Royale d\'Architecture founded by Colbert', body: 'Jean-Baptiste Colbert, Louis XIV\'s minister, founds the separate Royal Academy of Architecture. Its job: train architects to design buildings that make Bourbon France look more impressive than Renaissance Italy. The Prix de Rome (established 1666 for painting, extended to architecture in 1720) sends top students to study antiquity in Rome on royal stipend.', highlight: true },
+        { year: '1816', label: 'École des Beaux-Arts formally consolidates', body: 'After the Revolution and Napoleonic reorganization, the academies merge into the École nationale supérieure des Beaux-Arts. The atelier system, the concours, the Prix de Rome — all preserved. The royal-court model survives the king who created it.' },
+        { year: '1846', label: 'Richard Morris Hunt enters the École', body: 'Hunt becomes the first American admitted to the École\'s architecture section. He spends 12 years in Paris absorbing the system: bespoke commission for wealthy patrons, classical antiquity as the imprimatur of "real" architecture, the atelier hierarchy with its initiation rituals, the contempt for pattern books and stock plans.', highlight: true },
+        { year: '1855', label: 'Hunt returns to America, brings the system with him', body: 'Hunt sets up practice in New York with what one historian called "a comprehensive library of architecture books and hundreds of photographs." His clients become a roster of 19th-century American wealth: William K. Vanderbilt, Cornelius Vanderbilt II, the Belmonts, the Goelets, George Washington Vanderbilt. He builds them French chateaux on Fifth Avenue and Newport. Not American architecture. French royal-court architecture, transplanted.' },
+        { year: '1865', label: 'Hunt sues for a 5% fee — and wins', body: 'In a dispute over compensation, Hunt establishes in court the principle of a 5% percentage-of-construction-cost fee. The number is itself French in origin, derived from the patron-architect economic relationship the École taught. American architecture\'s pricing model is, from this moment forward, a French royal-court inheritance.', highlight: true },
+        { year: '1908', label: 'AIA adopts mandatory fee schedule', body: 'Forty-three years after Hunt, the American Institute of Architects formalizes the 5–8% fee structure as professional standard. American architecture is now operating, institutionally, on what was already a 237-year-old French aristocratic guild model.' },
+        { year: '1968', label: 'École students revolt; architecture instruction terminated', body: 'In May 1968, École students join the broader Paris uprising. Britannica records their grievances in plain language: students were "frustrated by racism, sexism, and an outdated curriculum." Architectural instruction is removed from the École that year — the school where the model was born ejects the discipline from its building. The 320-year tradition of the Prix de Rome is abolished.', highlight: true },
+        { year: '1972', label: 'AIA consent decree; cultural template untouched', body: 'Four years after the École cuts architecture loose, the U.S. Department of Justice forces the AIA to abandon its mandatory fee schedule under antitrust law. The economic model is broken. But the cultural model — the bespoke commission, the patron-architect relationship, the contempt for stock plans, the assumption that "real" architects serve wealth — that survives intact.' },
+        { year: '2026', label: 'The model is still running', body: 'In 2026 America, the unconscious image of "an architect" is still: a person with classical training, who takes individual commissions, who designs each building bespoke for one client, who treats stock plans and prefabricated systems as beneath the profession, who charges 5–8% of construction cost as a single fee, who captures none of the building\'s appreciation. The model is older than the country. Most of the people running it have no idea where it came from.', highlight: true }
+      ];
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-12 md:py-16 bg-cream-sunken border-y border-line">
+          <div className="mb-8 max-w-2xl">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">The chain of inheritance</div>
+            <h2 className="serif text-2xl md:text-3xl font-semibold tracking-tight">A line you can draw with a ruler. From a French royal court in 1671 to an American architecture firm in 2026.</h2>
+          </div>
+          <div className="space-y-3 md:space-y-4">
+            {events.map((e, i) => (
+              <div key={i} className={`grid grid-cols-12 gap-3 md:gap-5 px-4 md:px-5 py-4 rounded-sm border ${e.highlight ? 'bg-cream-raised' : 'bg-[var(--bg)]'}`} style={{ borderColor: e.highlight ? 'var(--accent)' : 'var(--line-faint)' }}>
+                <div className="col-span-12 md:col-span-2 num serif text-2xl md:text-3xl font-semibold" style={{ color: e.highlight ? 'var(--accent)' : 'var(--text)' }}>{e.year}</div>
+                <div className="col-span-12 md:col-span-10">
+                  <div className={`serif text-base md:text-lg font-semibold mb-1 ${e.highlight ? 'text-accent' : ''}`}>{e.label}</div>
+                  <p className="text-sm text-muted leading-relaxed">{e.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted italic mt-6 max-w-2xl">
+            Sources: Britannica (École des Beaux-Arts, founding by Colbert in 1671 under Louis XIV; 1968 student revolt grievances on "racism, sexism, and an outdated curriculum"; architectural instruction removed in 1968). MoMA, "The Architecture of the École des Beaux-Arts" (1977). Hunt biography sources via Avery Library and MIT Press, American Design Ethic. AIA antitrust history: 1972 consent decree, Civil Action 992-72.
+          </p>
+        </section>
+      );
+    }
+
+    function Tab08_WhatItEncodes() {
+      const codes = [
+        {
+          label: 'The bespoke commission',
+          old: 'A wealthy patron commissions a custom building. The architect serves the patron\'s vision and station. The work is, by definition, one-of-a-kind for one-of-a-kind clients.',
+          today: 'A "real" architecture firm takes individual commissions. Pattern books, stock plans, prefab systems, kit homes — these are beneath the discipline. The bespoke project is the unit of work.'
+        },
+        {
+          label: 'The patron-architect relationship',
+          old: 'The architect is a creative professional in service of wealth. The relationship is courtly: the architect manages the project, but the patron is the principal. The architect\'s status derives from the patron\'s.',
+          today: 'The owner-architect dynamic in 2026 still encodes this. The owner directs, signs off, names the project. The architect, however brilliant, is not the principal. Even the AIA\'s own contract language ("the Owner shall own the Architect\'s Instruments of Service") preserves this courtly hierarchy.'
+        },
+        {
+          label: 'Classical training as imprimatur',
+          old: 'Real architects studied antiquity. They went to Rome on royal stipend. They produced rendered competition drawings under hazing-ritual conditions. The training was as much social initiation as technical education.',
+          today: 'M.Arch programs still teach classical orders. Studio culture still includes all-nighters and atelier-style hierarchy. The Prix de Rome lives on as a thousand smaller competitions, fellowships, and prestige markers. The cultural shape is the same.'
+        },
+        {
+          label: 'The gentleman\'s profession',
+          old: 'Architecture in 1671 France was a profession for men of a particular class, with the leisure to study antiquity, the connections to attract patrons, the social standing to command a 5% fee. Women were not in the room. Neither were tradespeople.',
+          today: 'In 1968 the École\'s own students named "racism, sexism, and outdated curriculum" as their grievances. The profession is, in 2024, more diverse than it was — but the economic structure (the unpaid internship years, the AXP hours, the late licensure age, the firm ownership patterns) still gates entry for everyone except those with family resources to absorb a decade of low pay before the work pays off.'
+        },
+        {
+          label: 'The contempt for pattern books',
+          old: 'A French academician would never publish stock plans for the masses. That was for trade builders. Real architecture was bespoke for patrons; pattern books were a different (lower) discipline.',
+          today: 'Architects, in 2026, still don\'t sell stock plans. Sears Modern Homes (1908–1940) sold ~75,000 kit homes through 370+ designs. The AIA distanced itself from the entire program. "Real" architecture stayed bespoke. The scale model died.'
+        },
+        {
+          label: 'The fee as social compact',
+          old: 'A 5% commission, set by Hunt in 1865 and codified by the AIA in 1908, was the gentleman\'s portion. It assumed a courtly relationship with a wealthy client who could afford generosity in the relationship. It was never priced as a fair share of the value created.',
+          today: 'Architects in 2026 still quote 5–8%. The number was never updated to reflect 21st-century value capture. Every other profession that emerged in the same era (lawyers, doctors, software engineers) renegotiated its compensation model multiple times. Architecture kept the original.'
+        }
+      ];
+      return (
+        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
+          <div className="mb-10 max-w-2xl">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">What the inheritance actually encodes</div>
+            <h2 className="serif text-3xl md:text-4xl font-semibold tracking-tight mb-4">The cultural code that traveled from Versailles to Vanderbilt to today.</h2>
+            <p className="text-muted">
+              When you copy a 17th-century French royal-court professional model into 21st-century America, you don't just copy the fee structure. You copy the cultural assumptions that came with it. Those assumptions are still here. They look like neutral defaults. They are not.
+            </p>
+          </div>
+
+          <div className="space-y-5">
+            {codes.map((c, i) => (
+              <div key={i} className="bg-cream-raised border border-line-faint rounded-sm p-5 md:p-6">
+                <div className="serif text-lg md:text-xl font-semibold mb-4">{c.label}</div>
+                <div className="grid md:grid-cols-2 gap-5">
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-muted mb-2">Then (1671 — 1900)</div>
+                    <p className="text-sm text-muted leading-relaxed">{c.old}</p>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--accent)' }}>Still active (2026)</div>
+                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text)' }}>{c.today}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    function Tab08_Punchline() {
+      return (
+        <section className="bg-cream-sunken border-y border-line py-20 md:py-28">
+          <div className="max-w-4xl mx-auto px-6">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted mb-4">The math nobody wants to do</div>
+            <div className="space-y-7 serif serif-text text-2xl md:text-3xl lg:text-4xl font-medium leading-[1.15] tracking-tight">
+              <p>Hunt was born in 1827. He went to the École in 1846, when the model he was learning was already 175 years old.</p>
+              <p className="text-faint">The AIA copied Hunt's model in 1908, when the model was already 237 years old. By then it had been transplanted from a French royal court to American Newport, but the cultural code was unchanged.</p>
+              <p>It is now 2026. The model is <span className="num text-accent">355 years old</span>. The country it was designed for has been a republic for two centuries. The king it was designed to flatter has been dead for 311 years. The school that originated it threw architecture out 58 years ago.</p>
+              <p className="text-faint">And American architecture is still running on it.</p>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab08_Closer() {
+      return (
+        <section className="max-w-4xl mx-auto px-6 py-20 md:py-28">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted mb-6">The closing thought</div>
+          <div className="space-y-6 text-lg md:text-xl leading-relaxed" style={{ color: 'var(--text)' }}>
+            <p>
+              None of this is any individual architect's fault. People inherit professions. They didn't pick the model. Most of them have never thought about Colbert or Hunt or 1671 in their lives, and that is exactly the point — the model is so deep in the water that it is invisible to the fish swimming in it.
+            </p>
+            <p>
+              But it is no one else's fault either. Lawyers updated their economics. Doctors updated theirs. Software engineers built theirs from scratch. Every other creative profession either modernized its compensation structure or built a back-end that captured value over time. Architecture is the holdout, and the reason it's the holdout is that the cultural template is so old and so embedded that questioning it feels like questioning architecture itself.
+            </p>
+            <p>
+              The honest read of the model, today, is hard. It was designed for a French aristocratic court. It served a class structure that the United States rejected at its founding. It encoded a relationship between architect and patron that depended on the patron being wealthy and the architect being a gentleman. The École's own students named "racism, sexism, and outdated curriculum" as their grievances in 1968, and their school responded by ejecting architecture entirely. That should have been the moment the profession looked at the model and said: this is not survivable.
+            </p>
+            <p>
+              Instead, four years later, the consent decree took away the fee schedule. The economic model was disabled. The cultural template was preserved. Architects spent the next fifty years operating as though the only problem was that they could no longer agree on prices. The actual problem — that the entire model was a 350-year-old aristocratic guild — went unexamined.
+            </p>
+            <p className="serif text-2xl md:text-3xl font-semibold leading-snug" style={{ color: 'var(--text)' }}>
+              You cannot fix the economics of architecture without fixing what architecture believes about itself. And what architecture believes about itself, right now, was largely written by a French finance minister in 1671.
+            </p>
+            <p>
+              That is the inheritance. That is what every conversation about fees, royalties, scale, and pricing eventually runs into. The numbers don't move because the story underneath the numbers — the story about who an architect is, what an architect serves, and what an architect is too good to sell — is older than any of us. And most of the profession does not know they are inside the story.
+            </p>
+            <p className="text-muted italic mt-8">
+              The first step out is naming where it came from.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    function Tab08({ setActiveTab }) {
+      return (
+        <>
+          <Tab08_Hero/>
+          <Tab08_Timeline/>
+          <Tab08_WhatItEncodes/>
+          <Tab08_Punchline/>
+          <Tab08_Closer/>
+          <section className="max-w-4xl mx-auto px-6 py-12 md:py-16 border-t border-line-faint">
+            <p className="serif serif-text text-2xl md:text-3xl leading-snug font-medium mb-6">
+              Back to the start.
+            </p>
+            <button onClick={() => setActiveTab(1)} className="text-sm uppercase tracking-wider text-accent hover:text-main transition border-b border-accent pb-1">← Tab 01 · The Floor</button>
+          </section>
+        </>
+      );
+    }
+
+    // ============================================================
+    // APP
+    // ============================================================
+
+    function App() {
+      const [years, setYears] = useState(20);
+      const [activeTab, setActiveTab] = useState(1);
+
+      useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [activeTab]);
+
+      return (
+        <div>
+          <Header activeTab={activeTab} setActiveTab={setActiveTab} />
+          {activeTab === 1 && <Tab01 years={years} setYears={setYears} setActiveTab={setActiveTab} />}
+          {activeTab === 2 && <Tab02 setActiveTab={setActiveTab} />}
+          {activeTab === 3 && <Tab03 setActiveTab={setActiveTab} />}
+          {activeTab === 4 && <Tab04 setActiveTab={setActiveTab} />}
+          {activeTab === 5 && <Tab05 setActiveTab={setActiveTab} />}
+          {activeTab === 6 && <Tab06 setActiveTab={setActiveTab} />}
+          {activeTab === 7 && <Tab07 setActiveTab={setActiveTab} />}
+          {activeTab === 8 && <Tab08 setActiveTab={setActiveTab} />}
+          <Footer />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
